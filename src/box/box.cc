@@ -903,5 +903,5 @@ box_snapshot()
 const char *
 box_status(void)
 {
-    return status;
+	return status;
 }

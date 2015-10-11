@@ -23,6 +23,8 @@
 #include "latch.h"
 #include <lib/csv/csv.h>
 #include <lua/clock.h>
+#include "coio.h"
+#include <box/memcached.h>
 
 /*
  * A special hack to cc/ld to keep symbols in an optimized binary.
@@ -107,5 +109,11 @@ void *ffi_symbols[] = {
 	(void *) csv_iterator_create,
 	(void *) csv_next,
 	(void *) csv_feed,
-	(void *) greeting_decode
+	(void *) greeting_decode,
+	(void *) memcached_start,
+	(void *) memcached_stop,
+	(void *) memcached_create,
+	(void *) memcached_free,
+	(void *) memcached_set_opt,
+	(void *) memcached_get_stat,
 };

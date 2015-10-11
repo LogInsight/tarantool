@@ -21,6 +21,9 @@ add_library(box
     iproto.cc
     iproto_constants.c
     iproto_port.cc
+    memcached.cc
+    memcached_constants.cc
+    memcached_layer.cc
     errcode.c
     error.cc
     xrow.cc
