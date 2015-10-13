@@ -4,25 +4,25 @@
 /*
  * old memcached text protocol
  *
- * enum memcached_op {
- * 	MC_SET = 1,
- * 	MC_ADD,
- * 	MC_REPLACE,
- * 	MC_APPEND,
- * 	MC_PREPEND,
- * 	MC_CAS,
- * 	MC_GET,
- * 	MC_GETS,
- * 	MC_DELETE,
- * 	MC_INCR,
- * 	MC_DECR,
- * 	MC_FLUSH,
- * 	MC_STATS,
- * 	MC_VERSION,
- * 	MC_QUIT,
+ * enum memcached_text_cmd {
+ * 	MEMCACHED_TXT_CMD_SET     = 0x01,
+ * 	MEMCACHED_TXT_CMD_ADD     = 0x02,
+ * 	MEMCACHED_TXT_CMD_REPLACE = 0x03,
+ * 	MEMCACHED_TXT_CMD_APPEND  = 0x04,
+ * 	MEMCACHED_TXT_CMD_PREPEND = 0x05,
+ * 	MEMCACHED_TXT_CMD_CAS     = 0x06,
+ * 	MEMCACHED_TXT_CMD_GET     = 0x07,
+ * 	MEMCACHED_TXT_CMD_GETS    = 0x08,
+ * 	MEMCACHED_TXT_CMD_DELETE  = 0x09,
+ * 	MEMCACHED_TXT_CMD_INCR    = 0x0a,
+ * 	MEMCACHED_TXT_CMD_DECR    = 0x0b,
+ * 	MEMCACHED_TXT_CMD_FLUSH   = 0x0c,
+ * 	MEMCACHED_TXT_CMD_STATS   = 0x0d,
+ * 	MEMCACHED_TXT_CMD_VERSION = 0x0e,
+ * 	MEMCACHED_TXT_CMD_QUIT    = 0x0f,
  * };
  *
- * struct memcached_request {
+ * struct memcached_text_request {
  * 	enum memcached_op op;
  * 	const char *key;
  * 	size_t      key_len;

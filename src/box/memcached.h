@@ -23,8 +23,6 @@ struct memcached_stat {
 	unsigned int  total_conns;
 	uint64_t      bytes_read;
 	uint64_t      bytes_written;
-	/* time when process was started */
-	time_t        started;
 	/* get statistics */
 	uint64_t      cmd_get;
 	uint64_t      get_hits;
@@ -59,7 +57,6 @@ struct memcached_stat {
 };
 
 struct memcached_service {
-	struct coio_service   service;
 	/* expiration configuration */
 	struct fiber         *expire_fiber;
 	bool                  expire_enabled;
@@ -67,6 +64,7 @@ struct memcached_service {
 	uint32_t              expire_time;
 	/* flush */
 	bool                  flush_enabled;
+	uint32_t              batch_count;
 	/* configurable */
 	int                   readahead;
 	const char           *uri;
@@ -76,8 +74,13 @@ struct memcached_service {
 	uint64_t              cas;
 	uint64_t              flush;
 	struct memcached_stat stat;
-	/* TODO: finish verbosity */
 	int                   verbosity;
+	/**
+	 *  0 if we need to continue transaction
+	 *  1 if transaction must be commited
+	 * -1 if transaction must be aborted
+	 **/
+	int                   intxn;
 };
 
 /**
@@ -91,20 +94,20 @@ struct memcached_service {
  */
 struct memcached_connection {
 	/* memcached_specific data */
+	int                       fd;
 	struct memcached_service *cfg;
 	/* connection data */
-	struct ev_io             *coio;
 	struct iobuf             *iobuf;
 	struct obuf_svp           write_end;
 	bool                      noreply;
 	bool                      close_connection;
 	bool                      noprocess;
 	/* session data */
-	union {
-		struct sockaddr addr;
-		struct sockaddr_storage addrstorage;
-	};
-	socklen_t addr_len;
+//	union {
+//		struct sockaddr addr;
+//		struct sockaddr_storage addrstorage;
+//	};
+//	socklen_t addr_len;
 //	struct session           *session;
 	/* request data */
 	struct memcached_hdr     *hdr;
@@ -117,7 +120,8 @@ enum memcached_options {
 	MEMCACHED_OPT_EXPIRE_ENABLED,
 	MEMCACHED_OPT_EXPIRE_COUNT,
 	MEMCACHED_OPT_EXPIRE_TIME,
-	MEMCACHED_OPT_FLUSH_ENABLED
+	MEMCACHED_OPT_FLUSH_ENABLED,
+	MEMCACHED_OPT_VERBOSITY,
 };
 
 void memcached_set_opt(struct memcached_service *, int, ...);
@@ -128,12 +132,14 @@ memcached_get_stat(struct memcached_service *);
 struct memcached_service *
 memcached_create(const char *, uint32_t);
 
-void memcached_start(struct memcached_service *, const char *);
+void memcached_start(struct memcached_service *);
 void memcached_stop(struct memcached_service *);
 void memcached_free(struct memcached_service *);
 
 void memcached_expire_start(struct memcached_service *p);
 void memcached_expire_stop(struct memcached_service *p);
+
+void memcached_handler(struct memcached_service *p, int fd);
 
 #define MEMCACHED_MAX_SIZE (1 << 20)
 

@@ -116,4 +116,5 @@ void *ffi_symbols[] = {
 	(void *) memcached_free,
 	(void *) memcached_set_opt,
 	(void *) memcached_get_stat,
+	(void *) memcached_handler
 };

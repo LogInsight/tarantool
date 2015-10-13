@@ -46,7 +46,6 @@ if (EXISTS "${PROJECT_BINARY_DIR}/third_party/luajit/src/jit/p.lua")
     lua_source(lua_sources "${CMAKE_BINARY_DIR}/third_party/luajit/src/jit/zone.lua")
 endif()
 lua_source(lua_sources lua/memcached.lua)
-lua_source(lua_sources lua/memcached_config.lua)
 
 add_custom_target(generate_lua_sources
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/src/box

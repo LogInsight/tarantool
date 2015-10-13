@@ -28,8 +28,6 @@
  */
 
 #include "say.h"
-#include "coio.h"
-#include "coio_buf.h"
 #include "evio.h"
 #include "main.h"
 #include "fiber.h"
@@ -47,6 +45,8 @@
 
 #include "box/memcached.h"
 #include "box/memcached_layer.h"
+
+#include "box/memcached_network.h"
 
 static inline int
 memcached_need_txn(struct memcached_connection *con) {
@@ -68,31 +68,46 @@ memcached_need_txn(struct memcached_connection *con) {
 };
 
 static inline int
-memcached_process_request(struct memcached_connection *con) {
+memcached_skip_request(struct memcached_connection *con) {
+	struct ibuf *in = &con->iobuf->in;
+	while (ibuf_used(in) < con->len && con->noprocess) {
+		con->len -= ibuf_used(in);
+		ibuf_reset(in);
+		ssize_t read = mnet_read_ibuf(con->fd, in, 1);
+		if (read < 1)
+			return -1;
+		con->cfg->stat.bytes_read += read;
+	}
+	in->rpos += con->len;
+	return 0;
+}
+
+static inline int
+memcached_bin_request(struct memcached_connection *con) {
 	if (con->noprocess)
 		goto noprocess;
 	try {
 		/* Process message */
 		con->noreply = false;
-		int rv = 1;
-		if (memcached_need_txn(con) && rv != 0)
+		if (memcached_need_txn(con) && con->cfg->intxn != 0) {
 			box_txn_begin();
+			con->cfg->intxn = 1;
+		}
 		if (con->hdr->cmd < MEMCACHED_BIN_CMD_MAX) {
-			int rv = mc_handler[con->hdr->cmd](con);
+			con->cfg->intxn = mc_handler[con->hdr->cmd](con);
 			if (memcached_need_txn(con)) {
-				if (rv == 1) {
+				if (con->cfg->intxn == 1) {
 					box_txn_commit();
-				} else if (rv == -1) {
+				} else if (con->cfg->intxn == -1) {
 					box_txn_rollback();
 				}
 			}
 		} else {
-			memcached_process_unknown(con);
+			memcached_bin_process_unknown(con);
 		}
-
 	} catch (Exception *e) {
 		char errstr[256];
-		snprintf(errstr, 256, "SERVER ERROR '%s'", e->errmsg());
+		snprintf(errstr, 256, "SERVER ERROR '%s'", e->errmsg);
 		memcached_error(con, MEMCACHED_BIN_RES_SERVER_ERROR,
 					errstr);
 		e->log();
@@ -100,7 +115,7 @@ memcached_process_request(struct memcached_connection *con) {
 	}
 noprocess:
 	con->write_end = obuf_create_svp(&con->iobuf->out);
-	con->iobuf->in.rpos += con->len;
+	memcached_skip_request(con);
 	return 0;
 }
 
@@ -120,23 +135,36 @@ memcached_dump_hdr(struct memcached_hdr *hdr)
 	say_debug("cas:       %" PRIu64,         bswap_u64(hdr->cas));
 }
 
-
+/**
+ * return -1 on error (forced closing of connection)
+ * return  0 in everything ok
+ * - if con->noprocess == 1 then skip execution
+ * return >1 if we need more data
+ */
 static inline int
 memcached_parse_request(struct memcached_connection *con) {
-	struct obuf *out     = &con->iobuf->out; (void )out;
-	struct ibuf *in      = &con->iobuf->in;
+	struct obuf     *out = &con->iobuf->out; (void )out;
+	struct ibuf      *in = &con->iobuf->in;
 	const char *reqstart = in->rpos;
 	/* Check that we have enough data for header */
 	if (reqstart + sizeof(struct memcached_hdr) > in->wpos) {
 		return sizeof(struct memcached_hdr) - (in->wpos - reqstart);
 	}
 	struct memcached_hdr *hdr = (struct memcached_hdr *)reqstart;
+	uint32_t tot_len = bswap_u32(hdr->tot_len);
+	con->len = sizeof(struct memcached_hdr) + tot_len;
+	con->hdr = hdr;
 	/* error while parsing */
 	if (hdr->magic != MEMCACHED_BIN_REQUEST) {
+		memcached_error(con, MEMCACHED_BIN_RES_EINVAL, NULL);
 		say_error("Wrong magic, closing connection");
 		return -1;
+	} else if (bswap_u16(hdr->key_len) + hdr->ext_len > tot_len) {
+		memcached_error(con, MEMCACHED_BIN_RES_EINVAL, NULL);
+		say_error("Object sizes are not consistent, skipping package");
+		con->noprocess = true;
+		return 0;
 	}
-	uint32_t tot_len = bswap_u32(hdr->tot_len);
 	const char *reqend = reqstart + sizeof(struct memcached_hdr) + tot_len;
 	/* Check that we have enough data for body */
 	if (reqend > in->wpos) {
@@ -146,11 +174,16 @@ memcached_parse_request(struct memcached_connection *con) {
 	hdr->tot_len = tot_len;
 	hdr->opaque  = bswap_u32(hdr->opaque);
 	hdr->cas     = bswap_u64(hdr->cas);
-	con->hdr     = hdr;
 	const char *pos = reqstart + sizeof(struct memcached_hdr);
 	con->body.ext_len = hdr->ext_len;
 	con->body.key_len = hdr->key_len;
 	con->body.val_len = hdr->tot_len - (hdr->ext_len + hdr->key_len);
+	if (tot_len > MEMCACHED_MAX_SIZE) {
+		memcached_error(con, MEMCACHED_BIN_RES_E2BIG, NULL);
+		say_error("Object is too big for cache, skipping package");
+		con->noprocess = true;
+		return 0;
+	}
 	if (con->body.ext_len > 0) {
 		con->body.ext = pos;
 		pos += hdr->ext_len;
@@ -169,51 +202,40 @@ memcached_parse_request(struct memcached_connection *con) {
 	} else {
 		con->body.val = NULL;
 	}
-	con->len = sizeof(struct memcached_hdr) + hdr->tot_len;
-	if (tot_len > MEMCACHED_MAX_SIZE) {
-		memcached_error(con, MEMCACHED_BIN_RES_E2BIG, NULL);
-		say_error("Object is too big for cache");
-		con->noprocess = true;
-		return 0;
-	} else if (tot_len < con->body.ext_len + con->body.key_len) {
-		memcached_error(con, MEMCACHED_BIN_RES_E2BIG, NULL);
-		say_error("Object is too big for cache");
-		con->noprocess = true;
-		return 0;
-	}
 	assert(pos == reqend);
 	return 0;
 }
 
 static inline ssize_t
 memcached_flush(struct memcached_connection *con) {
-	struct ev_io *coio  = con->coio;
 	struct iobuf *iobuf = con->iobuf;
-	ssize_t total = coio_writev(coio, iobuf->out.iov,
+	ssize_t total = mnet_writev(con->fd, iobuf->out.iov,
 				    obuf_iovcnt(&iobuf->out),
 				    obuf_size(&iobuf->out));
+	con->cfg->stat.bytes_written += total;
 	if (ibuf_used(&iobuf->in) == 0)
 		ibuf_reset(&iobuf->in);
 	obuf_reset(&iobuf->out);
-	ibuf_reserve(&iobuf->in, con->cfg->readahead);
+	ibuf_reserve_nothrow(&iobuf->in, con->cfg->readahead);
 	return total;
 }
 
 static inline void
 memcached_loop(struct memcached_connection *con)
 {
-	struct ev_io *coio  = con->coio;
 	struct iobuf *iobuf = con->iobuf;
 	int rc = 0;
 	struct ibuf *in = &iobuf->in;
-	size_t to_read = 1;
+	size_t to_read = 24;
+	int batch_count = 0;
 
 	for (;;) {
-		ssize_t read = coio_bread(coio, in, to_read);
-		if (read <= 0)
+		ibuf_reserve_nothrow(&iobuf->in, to_read);
+		ssize_t read = mnet_read_ibuf(con->fd, in, to_read);
+		if (read < to_read)
 			break;
 		con->cfg->stat.bytes_read += read;
-		to_read = 1;
+		to_read = 24;
 next:
 		rc = memcached_parse_request(con);
 		if (rc == -1) {
@@ -223,66 +245,56 @@ next:
 			to_read = rc;
 			continue;
 		}
-		/**
-		 * Return -1 on force connection close
-		 * Return 0 if everything is parsed
-		 */
-		rc = memcached_process_request(con);
-		if (rc < 0 || con->close_connection) {
+		memcached_bin_request(con);
+		if (con->close_connection) {
 			say_debug("Requesting exit. Exiting.");
 			break;
-		} else if (rc > 0) {
-			to_read = rc;
-			continue;
-		} else if (rc == 0 && ibuf_used(in) > 0) {
+		} else if (rc == 0 && ibuf_used(in) > 0 &&
+			   batch_count < con->cfg->batch_count) {
 			/* Need to add check for batch count */
+			batch_count++;
 			goto next;
 		}
+		batch_count = 0;
 		/* Write back answer */
-		if (!con->noreply) {
-			ssize_t written = memcached_flush(con);
-			con->cfg->stat.bytes_written += written;
-		}
+		if (!con->noreply)
+			memcached_flush(con);
 		fiber_gc();
 		con->noreply = false;
 		con->noprocess = false;
 	}
+	memcached_flush(con);
 }
 
-static inline void
-memcached_handler(va_list ap)
+void
+memcached_handler(struct memcached_service *p, int fd)
 {
-	struct ev_io     coio       = va_arg(ap, struct ev_io);
-	struct sockaddr *addr       = va_arg(ap, struct sockaddr *);
-	socklen_t        addr_len   = va_arg(ap, socklen_t);
-	struct iobuf    *iobuf      = va_arg(ap, struct iobuf *);
-	struct memcached_service *p = va_arg(ap, struct memcached_service *);
+	struct iobuf    *iobuf      = iobuf_new();
 
 	struct memcached_connection con;
 	/* TODO: move to connection_init */
 	memset(&con, 0, sizeof(struct memcached_connection));
-	con.coio      = &coio;
+	con.fd        = fd;
 	con.iobuf     = iobuf;
 	con.write_end = obuf_create_svp(&iobuf->out);
-	memcpy(&con.addr, addr, addr_len);
-	con.addr_len  = addr_len;
-//	con.session   = session_create(con.coio->fd, *(uint64_t *)&con.addr);
+//	memcpy(&con.addr, addr, addr_len);
+//	con.addr_len  = addr_len;
+//	con.session   = session_create(con.fd, *(uint64_t *)&con.addr);
 	con.cfg       = p;
 
 	/* read-write cycle */
 	con.cfg->stat.curr_conns++;
 	con.cfg->stat.total_conns++;
-	con.cfg->stat.started = fiber_time64();
+//	con.cfg->stat.started = fiber_time64();
 	try {
 		auto scoped_guard = make_scoped_guard([&] {
-			fiber_sleep(0.01);
 			con.cfg->stat.curr_conns--;
-			evio_close(loop(), &coio);
+			close(con.fd);
 			iobuf_delete(iobuf);
 		});
 
 		memcached_loop(&con);
-		memcached_flush(&con);
+		return;
 	} catch (const FiberCancelException& e) {
 		throw;
 	} catch (const Exception& e) {
@@ -356,7 +368,6 @@ restart:
 	fiber_gc();
 
 	goto restart;
-
 }
 
 void
@@ -365,7 +376,7 @@ memcached_expire_start(struct memcached_service *p)
 	if (p->expire_fiber != NULL) return;
 	struct fiber *expire_fiber = NULL;
 	char name[128];
-	snprintf(name, 127, "%s_memcached_expire", p->name); name[127] = '\0';
+	snprintf(name, 128, "%s_memcached_expire", p->name);
 	try {
 		expire_fiber = fiber_new(name, memcached_expire_loop);
 	} catch (const Exception& e) {
@@ -395,9 +406,11 @@ memcached_create(const char *name, uint32_t sid)
 		say_syserror("failed to allocate memory for memcached service");
 		return NULL;
 	}
+	srv->batch_count    = 20;
 	srv->expire_enabled = true;
 	srv->expire_count   = 50;
 	srv->expire_time    = 3600;
+	srv->expire_fiber   = NULL;
 	srv->space_id       = sid;
 	srv->name           = strdup(name);
 	srv->cas            = 1;
@@ -413,25 +426,21 @@ memcached_create(const char *name, uint32_t sid)
 void
 memcached_free(struct memcached_service *srv)
 {
+	memcached_stop(srv);
 	if (srv) free((void *)srv->name);
 	free (srv);
 }
 
 void
-memcached_start (struct memcached_service *srv, const char *uri)
+memcached_start (struct memcached_service *srv)
 {
-	srv->uri = uri;
 	memcached_expire_start(srv);
-	coio_service_init(&(srv->service), srv->name, memcached_handler, srv);
-	coio_service_start((struct evio_service *)&(srv->service), srv->uri);
 }
 
 void
 memcached_stop (struct memcached_service *srv)
 {
 	memcached_expire_stop(srv);
-	evio_service_stop((struct evio_service *)&(srv->service));
-//	evio_close(loop(), &(srv->service));
 	while (srv->stat.curr_conns != 0)
 		fiber_sleep(0.001);
 }
@@ -468,6 +477,14 @@ memcached_set_opt (struct memcached_service *srv, int opt, ...)
 			srv->flush_enabled = true;
 		}
 		break;
+	}
+	case MEMCACHED_OPT_VERBOSITY: {
+		int flag = va_arg(va, int);
+		if (flag > 0) {
+			srv->verbosity = (flag < 4 ? flag : 3);
+		} else if (flag > 3) {
+			srv->verbosity = 0;
+		}
 	}
 	default:
 		say_error("No such option %d", opt);

@@ -99,8 +99,7 @@ extern char strict_lua[],
 	csv_lua[],
 	v_lua[],
 	clock_lua[],
-	memcached_lua[],
-	memcached_config_lua[];
+	memcached_lua[];
 
 #if LUAJIT_VERSION_NUM >= 20100 /* LuaJIT 2.1+ */
 extern char p_lua[], zone_lua[];
@@ -126,7 +125,6 @@ static const char *lua_modules[] = {
 	"tap", tap_lua,
 	"help.en_US", help_en_US_lua,
 	"help", help_lua,
-	"memcached_config", memcached_config_lua,
 	"memcached", memcached_lua,
 	/* jit.* library */
 	"jit.vmdef", vmdef_lua,

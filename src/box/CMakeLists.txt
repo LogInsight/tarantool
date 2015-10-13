@@ -24,6 +24,7 @@ add_library(box
     memcached.cc
     memcached_constants.cc
     memcached_layer.cc
+    memcached_network.cc
     errcode.c
     error.cc
     xrow.cc
