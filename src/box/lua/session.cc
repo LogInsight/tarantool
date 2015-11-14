@@ -134,7 +134,7 @@ lbox_session_su(struct lua_State *L)
 	auto scoped_guard = make_scoped_guard([&] {
 		credentials_copy(&session->credentials, &orig_cr);
 	});
-	lua_call(L, top - 2, LUA_MULTRET);
+	lbox_call(L, top - 2, LUA_MULTRET);
 	return lua_gettop(L) - 1;
 }
 

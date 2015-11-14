@@ -173,7 +173,7 @@ lbox_info_index(struct lua_State *L)
 		return 1;
 	}
 
-	lua_call(L, 0, 1);
+	lua_pcall(L, 0, 1, 0);
 	lua_remove(L, -2);
 	return 1;
 }

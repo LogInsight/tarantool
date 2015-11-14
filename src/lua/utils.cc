@@ -106,13 +106,13 @@ luaL_ctypeid(struct lua_State *L, const char *ctypename)
 
 	/* Get ffi.typeof function */
 	luaL_loadstring(L, "return require('ffi').typeof");
-	lua_call(L, 0, 1);
+	lbox_call(L, 0, 1);
 	/* FFI must exist */
 	assert(lua_gettop(L) == idx + 1 && lua_isfunction(L, idx + 1));
 	/* Push the first argument to ffi.typeof */
 	lua_pushstring(L, ctypename);
 	/* Call ffi.typeof() */
-	lua_call(L, 1, 1);
+	lbox_call(L, 1, 1);
 	/* Returned type must be LUA_TCDATA with CTID_CTYPEID */
 	uint32_t ctypetypeid;
 	CTypeID ctypeid = *(CTypeID *)luaL_checkcdata(L, idx + 1, &ctypetypeid);
@@ -131,7 +131,7 @@ luaL_cdef(struct lua_State *L, const char *what)
 
 	/* Get ffi.typeof function */
 	luaL_loadstring(L, "return require('ffi').cdef");
-	lua_call(L, 0, 1);
+	lbox_call(L, 0, 1);
 	/* FFI must exist */
 	assert(lua_gettop(L) == idx + 1 && lua_isfunction(L, idx + 1));
 	/* Push the argument to ffi.cdef */
@@ -330,29 +330,25 @@ lua_field_inspect_ucdata(struct lua_State *L, struct luaL_serializer *cfg,
 		return;
 	int top = lua_gettop(L);
 	/* try to call LUAL_SERIALIZE method on udata/cdata */
-	try {
-		/*
-		 * LuaJIT specific: cdata metatable can't
-		 *
-		 *lua_getfield raises exception on
-		 * cdata objects if field doesn't exist.
-		 */
-		lua_getfield(L, idx, LUAL_SERIALIZE);
-		if (lua_isnil(L, -1)) {
-			lua_pop(L, 1);
-			return;
-		}
-		if (!lua_isfunction(L, -1))
-			luaL_error(L, "invalid " LUAL_SERIALIZE  " value");
-		/* copy object itself */
-		lua_pushvalue(L, idx);
-		lua_call(L, 1, 1);
-		/* replace obj with the unpacked value */
-		lua_replace(L, idx);
-		luaL_tofield(L, cfg, idx, field);
-	} catch (...) {
-		/* ignore lua_getfield exceptions */
+	/*
+	 * LuaJIT specific: cdata metatable can't
+	 *
+	 *lua_getfield raises exception on
+	 * cdata objects if field doesn't exist.
+	 */
+	lua_getfield(L, idx, LUAL_SERIALIZE);
+	if (lua_isnil(L, -1)) {
+		lua_pop(L, 1);
+		return;
 	}
+	if (!lua_isfunction(L, -1))
+		luaL_error(L, "invalid " LUAL_SERIALIZE  " value");
+	/* copy object itself */
+	lua_pushvalue(L, idx);
+	lua_pcall(L, 1, 1, 0);
+	/* replace obj with the unpacked value */
+	lua_replace(L, idx);
+	luaL_tofield(L, cfg, idx, field);
 	lua_settop(L, top); /* remove temporary objects */
 }
 
@@ -371,7 +367,7 @@ lua_field_inspect_table(struct lua_State *L, struct luaL_serializer *cfg,
 	if (lua_isfunction(L, -1)) {
 		/* copy object itself */
 		lua_pushvalue(L, idx);
-		lua_call(L, 1, 1);
+		lbox_call(L, 1, 1);
 		/* replace obj with the unpacked value */
 		lua_replace(L, idx);
 		luaL_tofield(L, cfg, idx, field);
@@ -452,7 +448,7 @@ lua_field_tostring(struct lua_State *L, struct luaL_serializer *cfg, int idx,
 	int top = lua_gettop(L);
 	lua_getglobal(L, "tostring");
 	lua_pushvalue(L, idx);
-	lua_call(L, 1, 1);
+	lbox_call(L, 1, 1);
 	lua_replace(L, idx);
 	lua_settop(L, top);
 	luaL_tofield(L, cfg, idx, field);
