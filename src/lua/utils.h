@@ -509,6 +509,7 @@ tarantool_lua_utils_init(struct lua_State *L);
 } /* extern "C" */
 
 #include "exception.h"
+
 extern const struct type type_LuajitError;
 class LuajitError: public Exception {
 public:
@@ -520,12 +521,11 @@ public:
 static inline void
 lbox_call(struct lua_State *L, int nargs, int nreturns)
 {
-	try {
-		lua_call(L, nargs, nreturns);
-	} catch (Exception *e) {
-		/* Let all well-behaved exceptions pass through. */
-		throw;
-	} catch (...) {
+	int error = lua_pcall(L, nargs, nreturns, 0);
+	if (error) {
+		struct error *e = diag_last_error(diag_get());
+		if (e)
+			error_raise(e);
 		/* Convert Lua error to a Tarantool exception. */
 		tnt_raise(LuajitError, L);
 	}

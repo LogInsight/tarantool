@@ -225,7 +225,7 @@ lbox_fillspace(struct lua_State *L, struct space *space, int i)
 	lua_gettable(L, -2);
 
 	lua_pushvalue(L, i);	/* space */
-	lua_call(L, 1, 0);
+	lbox_call(L, 1, 0);
 	lua_pop(L, 3);	/* cleanup stack - box, schema, space */
 }
 

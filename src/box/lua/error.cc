@@ -81,7 +81,7 @@ lbox_error_raise(lua_State *L)
 			lua_pushstring(L, reason);
 			for (int i = 3; i <= top; i++)
 				lua_pushvalue(L, i);
-			lua_call(L, top - 1, 1);
+			lua_pcall(L, top - 1, 1, 0);
 			reason = lua_tostring(L, -1);
 		}
 	} else if (top == 2 && lua_istable(L, 2)) {
