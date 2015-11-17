@@ -309,7 +309,7 @@ add_dependencies(build_bundled_libs coro)
 if (${CMAKE_SYSTEM_PROCESSOR} MATCHES "86" OR ${CMAKE_SYSTEM_PROCESSOR} MATCHES "amd64")
     add_definitions("-DCORO_ASM")
 else()
-    add_definitions("-DCORO_SJLJ")
+    add_definitions("-DCORO_UCONTEXT")
 endif()
 
 
