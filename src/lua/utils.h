@@ -521,6 +521,7 @@ public:
 static inline void
 lbox_call(struct lua_State *L, int nargs, int nreturns)
 {
+	diag_clear(diag_get());
 	int error = lua_pcall(L, nargs, nreturns, 0);
 	if (error) {
 		struct error *e = diag_last_error(diag_get());
