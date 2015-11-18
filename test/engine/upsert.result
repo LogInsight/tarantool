@@ -1,5 +1,14 @@
+test_run = require('test_run')
+---
+...
+inspector = test_run.new()
+---
+...
+engine = inspector:get_cfg('engine')
+---
+...
 -- upsert (str)
-space = box.schema.space.create('test', { engine = 'sophia' })
+space = box.schema.space.create('test', { engine = engine })
 ---
 ...
 index = space:create_index('primary', { type = 'tree', parts = {1, 'str'} })
@@ -348,7 +357,7 @@ space:drop()
 ---
 ...
 -- upsert (num)
-space = box.schema.space.create('test', { engine = 'sophia' })
+space = box.schema.space.create('test', { engine = engine })
 ---
 ...
 index = space:create_index('primary', { type = 'tree', parts = {1, 'num'} })
@@ -697,7 +706,7 @@ space:drop()
 ---
 ...
 -- upsert multi-part (num, num)
-space = box.schema.space.create('test', { engine = 'sophia' })
+space = box.schema.space.create('test', { engine = engine })
 ---
 ...
 index = space:create_index('primary', { type = 'tree', parts = {1, 'num', 2, 'num'} })
@@ -1046,7 +1055,7 @@ space:drop()
 ---
 ...
 -- upsert default tuple constraint
-space = box.schema.space.create('test', { engine = 'sophia' })
+space = box.schema.space.create('test', { engine = engine })
 ---
 ...
 index = space:create_index('primary', { type = 'tree', parts = {1, 'num', 2, 'num'} })
@@ -1060,7 +1069,7 @@ space:drop()
 ---
 ...
 -- upsert primary key modify (skipped)
-space = box.schema.space.create('test', { engine = 'sophia' })
+space = box.schema.space.create('test', { engine = engine })
 ---
 ...
 index = space:create_index('primary', { type = 'tree', parts = {1, 'num'} })
