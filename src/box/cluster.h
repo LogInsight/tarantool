@@ -32,7 +32,8 @@
  */
 #include "tt_uuid.h"
 #include <stdint.h>
-#include "applier.h"
+#define RB_COMPACT 1
+#include <third_party/rb.h> /* serverset_t */
 
 /**
  * @module cluster - global state of multi-master
@@ -97,7 +98,18 @@ cluster_clock();
 
 /* }}} */
 
-/** {{{ Cluster server id API **/
+/** {{{ Cluster server API **/
+
+/**
+ * Summary information about server in the cluster.
+ */
+struct server {
+	rb_node(struct server) link;
+	struct tt_uuid uuid;
+	struct applier *applier;
+	struct relay *relay;
+	uint32_t id;
+};
 
 static inline bool
 cserver_id_is_reserved(uint32_t id)
@@ -106,34 +118,56 @@ cserver_id_is_reserved(uint32_t id)
 }
 
 /**
+ * Find a server by UUID
+ */
+struct server *
+server_by_uuid(const struct tt_uuid *uuid);
+
+struct server *
+server_first(void);
+
+struct server *
+server_next(struct server *server);
+
+#define server_foreach(var) \
+	for (struct server *var = server_first(); \
+	     var != NULL; var = server_next(var))
+
+/**
  * Register the universally unique identifier of a remote server and
  * a matching cluster-local identifier in the  cluster registry.
  * Called when a remote master joins the cluster.
  *
  * The server is added to the cluster lsn table with LSN 0.
  */
+struct server *
+cluster_register_id(uint32_t server_id, const struct tt_uuid *server_uuid);
+
+/*
+ * Unregister numeric cluster-local id of remote server.
+ *
+ * The server is removed from the cluster lsn table.
+ */
 void
-cluster_add_server(uint32_t server_id, const struct tt_uuid *server_uuid);
-
-void
-cluster_del_server(uint32_t server_id);
-
-/** }}} **/
-
-/** {{{ Cluster applier API **/
+cluster_unregister_id(struct server *server);
 
 int
-cluster_set_appliers(struct applier **appliers, int count);
+cluster_register_appliers(struct applier **appliers, int count);
 
-struct applier *
-cluster_applier_first(void);
+/**
+ * Register \a relay within the \a server.
+ * \pre the only one relay can be registered.
+ * \pre server->id != 0
+ */
+void
+cluster_register_relay(struct server *server, struct relay *relay);
 
-struct applier *
-cluster_applier_next(struct applier *applier);
+/**
+ * Unregister \a relay from the \a server.
+ */
+void
+cluster_unregister_relay(struct server *server);
 
-#define cluster_foreach_applier(var) \
-	for (struct applier *var = cluster_applier_first(); \
-	     var != NULL; var = cluster_applier_next(var))
 /** }}} **/
 
 #endif

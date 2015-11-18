@@ -52,7 +52,13 @@ lbox_info_replication(struct lua_State *L)
 {
 	lua_newtable(L);
 
-	struct applier *applier = cluster_applier_first();
+	struct applier *applier = NULL;
+	server_foreach(server) {
+		if (server->applier != NULL) {
+			applier = server->applier;
+			break;
+		}
+	}
 	if (applier == NULL) {
 		lua_pushstring(L, "status");
 		lua_pushstring(L, "off");

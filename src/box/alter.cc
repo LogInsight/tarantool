@@ -1928,8 +1928,10 @@ on_commit_dd_cluster(struct trigger *trigger, void *event)
 	struct tuple *new_tuple = stmt->new_tuple;
 
 	if (new_tuple == NULL) {
-		uint32_t old_id = tuple_field_u32(stmt->old_tuple, 0);
-		cluster_del_server(old_id);
+		struct tt_uuid old_uuid = tuple_field_uuid(stmt->old_tuple, 1);
+		struct server *server = server_by_uuid(&old_uuid);
+		assert(server != NULL);
+		cluster_unregister_id(server);
 		return;
 	}
 	uint32_t id = tuple_field_u32(new_tuple, 0);
@@ -1937,13 +1939,20 @@ on_commit_dd_cluster(struct trigger *trigger, void *event)
 	struct tuple *old_tuple = stmt->old_tuple;
 	if (old_tuple != NULL) {
 		uint32_t old_id = tuple_field_u32(old_tuple, 0);
-		if (id != old_id) {
-			/* box.space._cluster:update(old, {{'=', 1, new}} */
-			cluster_del_server(old_id);
-			cluster_add_server(id, &uuid);
-		}
-	} else {
-		cluster_add_server(id, &uuid);
+		if (id == old_id)
+			return;
+
+		/* box.space._cluster:update(old, {{'=', 1, new}} */
+		struct server *server = server_by_uuid(&uuid);
+		assert(server != NULL);
+		cluster_unregister_id(server);
+		/* Fall through */
+	}
+
+	if (cluster_register_id(id, &uuid) == NULL) {
+		/* Can't throw exceptions in on_commit trigger */
+		panic("Can't register server: %s",
+		      diag_last_error(&fiber()->diag)->errmsg);
 	}
 }
 
