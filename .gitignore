@@ -73,3 +73,6 @@ doc/www/content/doc
 extra/dist/default/tarantool
 extra/com.tarantool.tarantool.plist
 extra/postflight
+.idea
+bld
+build
