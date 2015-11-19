@@ -53,6 +53,7 @@ static const char logger_syntax_reminder[] =
 static bool booting = true;
 static enum say_logger_type logger_type = SAY_LOGGER_STDERR;
 static bool logger_background = true;
+static bool isdebug = true;
 static const char *binary_filename;
 static int logger_nonblock;
 
@@ -377,7 +378,7 @@ vsay(int level, const char *filename, int line, const char *error,
 		}
 	}
 
-	if (level == S_WARN || level == S_ERROR || level == S_SYSERROR)
+	if (isdebug || level == S_WARN || level == S_ERROR || level == S_SYSERROR)
 		p += snprintf(buf + p, len - p, " %s:%i", filename, line);
 
 	p += snprintf(buf + p, len - p, " %c> ", level_to_char(level));

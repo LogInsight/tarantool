@@ -47,6 +47,7 @@
 #include "memtx_index.h"
 #include "sysview_engine.h"
 #include "sophia_engine.h"
+#include "wumpus_engine.h"
 #include "space.h"
 #include "port.h"
 #include "request.h"
@@ -777,6 +778,10 @@ engine_init()
 	SophiaEngine *sophia = new SophiaEngine();
 	sophia->init();
 	engine_register(sophia);
+
+	WumpusEngine * wumpus = new WumpusEngine();
+//	wumpus->init();
+	engine_register(wumpus);
 }
 
 /**

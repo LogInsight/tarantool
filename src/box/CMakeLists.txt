@@ -41,6 +41,8 @@ add_library(box
     sysview_index.cc
     sophia_engine.cc
     sophia_index.cc
+    wumpus_engine.cc
+    wumpus_index.cc
     space.cc
     func.cc
     alter.cc
