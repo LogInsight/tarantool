@@ -5,6 +5,8 @@
  **/
 #include "wt_index.h"
 #include "schema.h"
+#include "tuple.h"
+#include "space.h"
 
 WTIndex::WTIndex(struct key_def *key_def_arg)
         : Index(key_def_arg)
@@ -171,6 +173,63 @@ WTIndex::initIterator(struct iterator * /* ptr */,
     it->current = obj;
 #endif
 
+}
+
+/* non-interface function  */
+void
+WTIndex::replace_or_insert(const char *tuple,
+                               const char *tuple_end,
+                               enum dup_replace_mode mode)
+{
+    uint32_t size = tuple_end - tuple;
+    const char *key = tuple_field_raw(tuple, size, key_def->parts[0].fieldno);
+    /* insert: ensure key does not exists */
+    /*
+    if (mode == DUP_INSERT) {
+        struct tuple *found = findByKey(key);
+        if (found) {
+            tuple_delete(found);
+            struct space *sp = space_cache_find(key_def->space_id);
+            tnt_raise(ClientError, ER_TUPLE_FOUND,
+                      index_name(this), space_name(sp));
+        }
+    }
+    */
+    (void)mode;
+    // dup the value
+    {
+        int i = 0;
+        while (i < key_def->part_count) {
+            const char *part;
+            uint32_t partsize;
+            uint64_t num_part;
+            if (key_def->parts[i].type == STRING) {
+                part = mp_decode_str(&key, &partsize);
+                printf("no %d, s=%.*s\t", i, partsize, part);
+            } else {
+                num_part = mp_decode_uint(&key);
+                printf("no %d, n=%llu\t", i, num_part);
+                //part = (char *)&num_part;
+                //partsize = sizeof(uint64_t);
+            }
+            i++;
+        } // end while
+        fflush(stdout);  // force flush
+    }
+    /* replace */
+    /*
+    void *transaction = in_txn()->engine_tx;
+    const char *value;
+    size_t valuesize;
+    void *obj = createObject(key, false, &value);
+    valuesize = size - (value - tuple);
+    if (valuesize > 0)
+        sp_setstring(obj, "value", value, valuesize);
+    int rc;
+    rc = sp_set(transaction, obj);
+    if (rc == -1)
+        sophia_error(env);
+    */
 }
 
 /*- end of file -*/

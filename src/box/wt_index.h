@@ -55,6 +55,10 @@ public:
     // virtual void reserve(uint32_t /* size_hint */);
     // virtual void buildNext(struct tuple *tuple);
     // virtual void endBuild();
+
+    void replace_or_insert(const char *tuple,
+                           const char *tuple_end,
+                           enum dup_replace_mode mode);
 protected:
     /*
      * Pre-allocated iterator to speed up the main case of

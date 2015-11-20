@@ -11,6 +11,10 @@
 #include "txn.h"
 #include "index.h"
 #include "space.h"
+#include "msgpuck/msgpuck.h"
+#include "small/rlist.h"
+#include "request.h"
+#include "iproto_constants.h"
 
 /**
 * A version of space_replace for a space which has
@@ -151,8 +155,8 @@ public:
 
 
 struct tuple *
-WTSpace::executeReplace(struct txn * /* txn */, struct space * /* space */,
-						   struct request * /* request */ )
+WTSpace::executeReplace(struct txn * txn, struct space * space,
+						   struct request * request)
 {
 #if 0
 	struct tuple *new_tuple = tuple_new(space->format, request->tuple,
@@ -165,8 +169,29 @@ WTSpace::executeReplace(struct txn * /* txn */, struct space * /* space */,
 	/** The new tuple is referenced by the primary key. */
 	return new_tuple;
 #endif
-	panic("executeReplace, not implemented");
-    return NULL;
+	(void) txn;
+
+	WTIndex *index = (WTIndex*)index_find(space, 0);
+	// 如果 space 定义了 fields, 需要在此检查 request 的 tuple 是否有效
+	space_validate_tuple_raw(space, request->tuple);
+	tuple_field_count_validate(space->format, request->tuple);
+
+	int size = request->tuple_end - request->tuple;
+	const char *key =
+			tuple_field_raw(request->tuple, size,
+							index->key_def->parts[0].fieldno);
+	primary_key_validate(index->key_def, key, index->key_def->part_count);
+
+	enum dup_replace_mode mode = DUP_REPLACE_OR_INSERT;
+	if (request->type == IPROTO_INSERT) {
+		//SophiaEngine *engine = (SophiaEngine *)space->handler->engine;
+		//if (engine->recovery_complete)
+			mode = DUP_INSERT;
+	}
+	index->replace_or_insert(request->tuple, request->tuple_end, mode);
+	return NULL;
+	//panic("executeReplace, not implemented");
+    //return NULL;
 }
 
 struct tuple *
