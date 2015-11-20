@@ -5,7 +5,8 @@
  * @date: 2015/11/20
  **/
 
-#include "wiredtiger_engine.h"
+#include "wt_engine.h"
+#include "wt_index.h"
 #include "tuple.h"
 #include "txn.h"
 #include "index.h"
@@ -351,9 +352,10 @@ Handler * WiredtigerEngine::open() {
 }
 
 Index* WiredtigerEngine::createIndex(struct key_def *key_def) {
-	say_debug("key_def = %p\n", key_def);
-	panic("createIndex, not implemented");
-	return NULL;
+	//say_debug("key_def = %p\n", key_def);
+	//panic("createIndex, not implemented");
+	return new WTIndex(key_def);
+	//return NULL;
 }
 
 bool WiredtigerEngine::needToBuildSecondaryKey(struct space *space) {

@@ -48,7 +48,7 @@
 #include "sysview_engine.h"
 #include "sophia_engine.h"
 #include "wumpus_engine.h"
-#include "wiredtiger_engine.h"
+#include "wt_engine.h"
 #include "space.h"
 #include "port.h"
 #include "request.h"
