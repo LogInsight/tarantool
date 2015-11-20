@@ -48,6 +48,7 @@
 #include "sysview_engine.h"
 #include "sophia_engine.h"
 #include "wumpus_engine.h"
+#include "wiredtiger_engine.h"
 #include "space.h"
 #include "port.h"
 #include "request.h"
@@ -782,6 +783,9 @@ engine_init()
 	WumpusEngine * wumpus = new WumpusEngine();
 //	wumpus->init();
 	engine_register(wumpus);
+
+	WiredtigerEngine *wiredtiger = new WiredtigerEngine();
+	engine_register(wiredtiger);
 }
 
 /**

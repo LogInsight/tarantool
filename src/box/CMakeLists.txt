@@ -43,6 +43,7 @@ add_library(box
     sophia_index.cc
     wumpus_engine.cc
     wumpus_index.cc
+    wiredtiger_engine.cc
     space.cc
     func.cc
     alter.cc
