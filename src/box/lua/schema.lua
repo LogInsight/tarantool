@@ -369,7 +369,7 @@ local function update_index_parts(parts)
     return parts
 end
 
-box.schema.index.create = function(space_id, name, options)
+box.schema.index.create = function(space_id, name, options, value_format)
     check_param(space_id, 'space_id', 'number')
     check_param(name, 'name', 'string')
     local options_template = {
@@ -428,7 +428,7 @@ box.schema.index.create = function(space_id, name, options)
     end
     local key_opts = { dimension = options.dimension,
         unique = options.unique, distance = options.distance }
-    _index:insert{space_id, iid, name, options.type, key_opts, parts}
+    _index:insert{space_id, iid, name, options.type, key_opts, parts, value_format}
     return box.space[space_id].index[name]
 end
 
@@ -996,9 +996,9 @@ function box.schema.space.bless(space)
         space_object_check(space)
         return box.schema.space.rename(space.id, name)
     end
-    space_mt.create_index = function(space, name, options)
+    space_mt.create_index = function(space, name, options, value_format)
         space_object_check(space)
-        return box.schema.index.create(space.id, name, options)
+        return box.schema.index.create(space.id, name, options, value_format)
     end
     space_mt.run_triggers = function(space, yesno)
         local s = builtin.space_by_id(space.id)
