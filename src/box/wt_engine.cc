@@ -1,5 +1,5 @@
 /**
- * @file: wiredtiger_engine.cc
+ * @file: wt_engine.cc
  * @author: wangjicheng
  * @mail: 602860321@qq.com
  * @date: 2015/11/20
@@ -11,6 +11,7 @@
 #include "txn.h"
 #include "index.h"
 #include "space.h"
+#include "schema.h"
 #include "msgpuck/msgpuck.h"
 #include "small/rlist.h"
 #include "request.h"
@@ -170,17 +171,20 @@ WTSpace::executeReplace(struct txn * txn, struct space * space,
 	return new_tuple;
 #endif
 	(void) txn;
-
-	WTIndex *index = (WTIndex*)index_find(space, 0);
+    int size = request->tuple_end - request->tuple;
+    const char *tmp = tuple_field_raw(request->tuple, size, 0);
+    uint64_t index_id = mp_decode_uint(&tmp);
+    printf("insert index_id = %lu\n", index_id);
+	WTIndex *index = (WTIndex*)index_find(space, index_id);
 	// 如果 space 定义了 fields, 需要在此检查 request 的 tuple 是否有效
 	space_validate_tuple_raw(space, request->tuple);
 	tuple_field_count_validate(space->format, request->tuple);
 
-	int size = request->tuple_end - request->tuple;
-	const char *key =
-			tuple_field_raw(request->tuple, size,
-							index->key_def->parts[0].fieldno);
-	primary_key_validate(index->key_def, key, index->key_def->part_count);
+	//int size = request->tuple_end - request->tuple;
+	//const char *key =
+	//		tuple_field_raw(request->tuple, size,
+	//						index->key_def->parts[0].fieldno);
+	//primary_key_validate(index->key_def, key, index->key_def->part_count);
 
 	enum dup_replace_mode mode = DUP_REPLACE_OR_INSERT;
 	if (request->type == IPROTO_INSERT) {
@@ -190,8 +194,6 @@ WTSpace::executeReplace(struct txn * txn, struct space * space,
 	}
 	index->replace_or_insert(request->tuple, request->tuple_end, mode);
 	return NULL;
-	//panic("executeReplace, not implemented");
-    //return NULL;
 }
 
 struct tuple *
@@ -377,10 +379,23 @@ Handler * WiredtigerEngine::open() {
 }
 
 Index* WiredtigerEngine::createIndex(struct key_def *key_def) {
-	//say_debug("key_def = %p\n", key_def);
-	//panic("createIndex, not implemented");
+    struct space *space = space_cache_find(288);
+    Index *index = (WTIndex*)index_find(space, 0);
+    struct iterator *it = index->allocIterator();
+    char buf[16+1];
+    uint32_t index_id = key_def->iid;
+    uint32_t sid = key_def->space_id;
+    mp_encode_array(buf, 17);
+    mp_encode_uint(buf, sid);
+    uint32_t offset = mp_sizeof_uint(sid);
+    mp_encode_uint(buf + offset, index_id);
+    index->initIterator(it, ITER_EQ, buf, 2);
+    struct tuple *tp = it->next(it);
+    if (tp){
+         const char *value_format = tuple_field_cstr(tp, 6);
+         printf("index value_format = %s\n", value_format);
+    }
 	return new WTIndex(key_def);
-	//return NULL;
 }
 
 bool WiredtigerEngine::needToBuildSecondaryKey(struct space *space) {
