@@ -202,6 +202,7 @@ add_executable(
 	${LIBUTIL_FREEBSD_SRC}/pidfile.c)
 add_dependencies(tarantool build_bundled_libs)
 target_link_libraries(tarantool box ${common_libraries})
+target_link_libraries(tarantool wiredtiger)
 
 if (TARGET_OS_DARWIN)
     # Necessary to make LuaJIT work on Darwin, see
