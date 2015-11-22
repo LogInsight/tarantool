@@ -8,6 +8,7 @@
 #define TARANTOOL_BOX_WT_INDEX_H_INCLUDED
 
 #include "index.h"
+#include "wk_server.h"
 
 class WTIndex: public Index {
 
@@ -59,12 +60,19 @@ public:
     void replace_or_insert(const char *tuple,
                            const char *tuple_end,
                            enum dup_replace_mode mode);
+    inline void init(wukong::WKServer *server, const char *name) {
+        wk_server = server;
+        snprintf(table_name, 128, "%s", name);
+    }
 protected:
     /*
      * Pre-allocated iterator to speed up the main case of
      * box_process(). Should not be used elsewhere.
      */
     mutable struct iterator *m_position;
+private:
+    char table_name[128];
+    wukong::WKServer *wk_server;
 };
 
 /** Build this index based on the contents of another index. */

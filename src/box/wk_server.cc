@@ -84,22 +84,22 @@ namespace wukong {
         return true;
     }
 
-    bool WKServer::put_value(const std::string *table_name, const WT_ITEM &key, const WT_ITEM &value) {
+    bool WKServer::put_value(const char *table_name, const uint64_t key, const char *value) {
         int ret = 0;
         bool status = true;
         WT_SESSION *session;
         if ((ret = m_conn->open_session(m_conn, NULL, NULL, &session)) != 0) {
-            error_log("drop_table", ret);
+            error_log("put_value", ret);
             return false;
         }
         WT_CURSOR *cursor;
-        if ((ret = session->open_cursor(session, table_name->c_str(), NULL, "raw, overwrite = true", &cursor)) != 0) {
+        if ((ret = session->open_cursor(session, table_name, NULL, "overwrite = true", &cursor)) != 0) {
             session->close(session, NULL);
-            error_log("drop_table", ret);
+            error_log("put_value", ret);
             return false;
         }
-        cursor->set_key(cursor, &key);
-        cursor->set_value(cursor, &value);
+        cursor->set_key(cursor, key);
+        cursor->set_value(cursor, value);
         ret = cursor->insert(cursor);
         if (ret != 0) {
             error_log("put_value", ret);

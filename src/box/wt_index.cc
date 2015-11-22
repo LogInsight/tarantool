@@ -182,7 +182,7 @@ WTIndex::replace_or_insert(const char *tuple,
                                enum dup_replace_mode mode)
 {
     uint32_t size = tuple_end - tuple;
-    const char *key = tuple_field_raw(tuple, size, key_def->parts[0].fieldno);
+    const char *recv_data = tuple_field_raw(tuple, size, 1);
     /* insert: ensure key does not exists */
     /*
     if (mode == DUP_INSERT) {
@@ -197,26 +197,30 @@ WTIndex::replace_or_insert(const char *tuple,
     */
     (void)mode;
     // dup the value
-    {
-        int i = 0;
-        while (i < key_def->part_count) {
-            const char *part;
-            uint32_t partsize;
-            uint64_t num_part;
-            if (key_def->parts[i].type == STRING) {
-                part = mp_decode_str(&key, &partsize);
-                printf("no %d, s=%.*s\t", i, partsize, part);
-            } else {
-                num_part = mp_decode_uint(&key);
-                (void)num_part;
-                //printf("no %d, n=%lu\t", i, num_part);
-                //part = (char *)&num_part;
-                //partsize = sizeof(uint64_t);
-            }
-            i++;
-        } // end while
-        fflush(stdout);  // force flush
-    }
+    printf("index num = %u\n", key_def->iid);
+#if 0
+    while (i < key_def->part_count) {
+        const char *part;
+        uint32_t partsize;
+        uint64_t num_part;
+        if (key_def->parts[i].type == STRING) {
+            part = mp_decode_str(&key, &partsize);
+            printf("no %d, s=%.*s\t", i, partsize, part);
+        } else {
+            num_part = mp_decode_uint(&key);
+            //(void)num_part;
+            printf("no %d, n=%lu\t", i, num_part);
+            //part = (char *)&num_part;
+            //partsize = sizeof(uint64_t);
+        }
+        i++;
+    } // end while
+#endif
+    uint64_t key = mp_decode_uint(&recv_data);
+    uint32_t value_size = 0;
+    const char *value = mp_decode_str(&recv_data, &value_size);
+    printf("key = %lu, value = %.*s\n", key, value_size, value);
+    wk_server->put_value(table_name, key, value);
     /* replace */
     /*
     void *transaction = in_txn()->engine_tx;
