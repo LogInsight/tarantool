@@ -379,16 +379,16 @@ Handler * WiredtigerEngine::open() {
 }
 
 Index* WiredtigerEngine::createIndex(struct key_def *key_def) {
-    struct space *space = space_cache_find(288);
-    Index *index = (WTIndex*)index_find(space, 0);
+    struct space *space = space_cache_find(BOX_INDEX_ID);
+    Index *index = (WTIndex*)index_find(space, 0); // the primary index - 0
     struct iterator *it = index->allocIterator();
     char buf[16+1];
     uint32_t index_id = key_def->iid;
     uint32_t sid = key_def->space_id;
-    mp_encode_array(buf, 17);
-    mp_encode_uint(buf, sid);
-    uint32_t offset = mp_sizeof_uint(sid);
-    mp_encode_uint(buf + offset, index_id);
+    char* buf_pos = mp_encode_array(buf, 2);
+	buf_pos = mp_encode_uint(buf_pos, sid);
+    //uint32_t offset = mp_sizeof_uint(sid);
+	buf_pos = mp_encode_uint(buf_pos, index_id);
     index->initIterator(it, ITER_EQ, buf, 2);
     struct tuple *tp = it->next(it);
     if (tp){
