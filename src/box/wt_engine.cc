@@ -369,12 +369,31 @@ WTSpace::executeSelect(struct txn *, struct space * /* space */,
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-WiredtigerEngine::WiredtigerEngine() : Engine("wiredtiger")
+WiredtigerEngine::WiredtigerEngine() : Engine("wiredtiger"), wk_server(NULL)
 {
 	//flags = ENGINE_CAN_BE_TEMPORARY;  // enable temporary
 }
 
-Handler * WiredtigerEngine::open() {
+WiredtigerEngine::~WiredtigerEngine() {
+    if (wk_server) {
+        delete wk_server;
+        wk_server = NULL;
+    }
+}
+
+void
+WiredtigerEngine::init() {
+    if (wk_server == NULL) {
+        wk_server = new wukong::WKServer();
+        if (wk_server) {
+            wk_server->connect_db();
+        }
+    }
+}
+
+Handler *
+WiredtigerEngine::open() {
+    printf("run at the new wt engine space\n");
 	return new WTSpace(this);
 }
 
@@ -384,15 +403,19 @@ Index* WiredtigerEngine::createIndex(struct key_def *key_def) {
     uint32_t index_id = key_def->iid;
     uint32_t sid = key_def->space_id;
     char* buf_pos = buf;
+    char table_name[128];
+    snprintf(table_name, sizeof(table_name), "table:wt_%u_%u", sid, index_id);
     buf_pos = mp_encode_array(buf_pos, 2);
     buf_pos = mp_encode_uint(buf_pos, sid);
 	buf_pos = mp_encode_uint(buf_pos, index_id);
     box_tuple_t *tp;
     box_index_get(BOX_INDEX_ID, 0, buf, buf_pos, &tp);
+    const char *value_format = NULL;
     if (tp){
-         const char *value_format = tuple_field_cstr(tp, 6);
-         printf("index value_format = %s\n", value_format);
+         value_format = tuple_field_cstr(tp, 6);
     }
+    printf("table name = %s, value_format = %s\n", table_name, value_format);
+    wk_server->create_table(table_name, value_format);
 	return new WTIndex(key_def);
 }
 

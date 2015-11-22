@@ -785,7 +785,8 @@ engine_init()
 	engine_register(wumpus);
 
 	WiredtigerEngine *wiredtiger = new WiredtigerEngine();
-	engine_register(wiredtiger);
+	wiredtiger->init();
+    engine_register(wiredtiger);
 }
 
 /**

@@ -45,6 +45,7 @@ add_library(box
     wumpus_index.cc
     wt_engine.cc
     wt_index.cc
+    wk_server.cc
     space.cc
     func.cc
     alter.cc
