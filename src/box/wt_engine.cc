@@ -379,18 +379,16 @@ Handler * WiredtigerEngine::open() {
 }
 
 Index* WiredtigerEngine::createIndex(struct key_def *key_def) {
-    struct space *space = space_cache_find(BOX_INDEX_ID);
-    Index *index = (WTIndex*)index_find(space, 0); // the primary index - 0
-    struct iterator *it = index->allocIterator();
-    char buf[16+1];
+    printf("call the create index\n");
+    char buf[16];
     uint32_t index_id = key_def->iid;
     uint32_t sid = key_def->space_id;
-    char* buf_pos = mp_encode_array(buf, 2);
-	buf_pos = mp_encode_uint(buf_pos, sid);
-    //uint32_t offset = mp_sizeof_uint(sid);
+    char* buf_pos = buf;
+    buf_pos = mp_encode_array(buf_pos, 2);
+    buf_pos = mp_encode_uint(buf_pos, sid);
 	buf_pos = mp_encode_uint(buf_pos, index_id);
-    index->initIterator(it, ITER_EQ, buf, 2);
-    struct tuple *tp = it->next(it);
+    box_tuple_t *tp;
+    box_index_get(BOX_INDEX_ID, 0, buf, buf_pos, &tp);
     if (tp){
          const char *value_format = tuple_field_cstr(tp, 6);
          printf("index value_format = %s\n", value_format);
