@@ -17,3 +17,9 @@
 [submodule "src/lib/small"]
 	path = src/lib/small
 	url = https://github.com/tarantool/small.git
+[submodule "third_party/wumpus"]
+	path = third_party/wumpus
+	url = git@github.com:LogInsight/wumpus.git
+[submodule "third_party/wiredtiger"]
+	path = third_party/wiredtiger
+	url = git@github.com:LogInsight/wiredtiger.git

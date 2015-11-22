@@ -2,5 +2,5 @@ import tarantool
 server = tarantool.connect("localhost", 33013)
 demo = server.space('tmp')
 
-
-demo.insert(('DDDD', 'Delta'))
+for i in range(0, 100000):
+    demo.insert( (i, 'Delta_%d' % i) )
