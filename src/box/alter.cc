@@ -150,13 +150,18 @@ key_def_check_tuple(const struct tuple *tuple, bool *is_166plus)
 			mp_next(&data);
 		}
 	} else {
-		if (field_count != 6)
+		if (!(field_count == 6 || field_count == 7))
 			goto err;
 		if (mp_typeof(*data) != MP_MAP)
 			goto err;
 		mp_next(&data);
 		if (mp_typeof(*data) != MP_ARRAY)
 			goto err;
+		if (field_count == 7) {
+			mp_next(&data);
+			if (mp_typeof(*data) != MP_STR)
+				goto err;
+		}
 	}
 	return;
 

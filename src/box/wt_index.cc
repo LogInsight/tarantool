@@ -209,7 +209,7 @@ WTIndex::replace_or_insert(const char *tuple,
             } else {
                 num_part = mp_decode_uint(&key);
                 (void)num_part;
-		//printf("no %d, n=%llu\t", i, num_part);
+                //printf("no %d, n=%lu\t", i, num_part);
                 //part = (char *)&num_part;
                 //partsize = sizeof(uint64_t);
             }
