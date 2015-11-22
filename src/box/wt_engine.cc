@@ -384,7 +384,8 @@ Index* WiredtigerEngine::createIndex(struct key_def *key_def) {
 }
 
 bool WiredtigerEngine::needToBuildSecondaryKey(struct space *space) {
-	say_debug("space = %p\n", space);
-	panic("needToBuildSecondaryKey, not implemented");
+	(void)space;
+	//say_debug("space = %p\n", space);
+	//panic("needToBuildSecondaryKey, not implemented");
 	return false;
 }
