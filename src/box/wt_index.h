@@ -19,7 +19,7 @@ public:
             m_position->free(m_position);
     }
     // must override virtual function
-    virtual struct tuple *findByKey(const char *key, uint32_t part_count) const;
+    virtual struct tuple *findByKey(const char *key, uint32_t part_count = 0) const;
     virtual struct tuple *replace(struct tuple *old_tuple,
                                   struct tuple *new_tuple,
                                   enum dup_replace_mode mode);
@@ -73,6 +73,7 @@ protected:
 private:
     char table_name[128];
     wukong::WKServer *wk_server;
+    struct tuple_format *format;
 };
 
 /** Build this index based on the contents of another index. */

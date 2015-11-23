@@ -12,6 +12,7 @@
 #include "index.h"
 #include "space.h"
 #include "schema.h"
+#include "port.h"
 #include "msgpuck/msgpuck.h"
 #include "small/rlist.h"
 #include "request.h"
@@ -57,6 +58,7 @@ struct WTSpace: public Handler {
 	virtual void
 			executeUpsert(struct txn *txn, struct space *space,
 						  struct request *request);
+
 	virtual void
 			executeSelect(struct txn *, struct space *space,
 						  uint32_t index_id, uint32_t iterator,
@@ -331,42 +333,25 @@ WTSpace::onAlter(Handler *old)
 }
 
 void
-WTSpace::executeSelect(struct txn *, struct space * /* space */,
-						  uint32_t /* index_id */, uint32_t /* iterator */,
+WTSpace::executeSelect(struct txn *, struct space * space,
+						  uint32_t index_id, uint32_t iterator,
 						  uint32_t /* offset */, uint32_t /* limit */,
-						  const char * /* key */, const char * /* key_end */,
-						  struct port * /* port */)
+						  const char * key, const char * /* key_end */,
+						  struct port *port)
 {
-#if 0
-	MemtxIndex *index = (MemtxIndex *) index_find(space, index_id);
-
-	ERROR_INJECT_EXCEPTION(ERRINJ_TESTING);
-
-	uint32_t found = 0;
+	WTIndex *index = (WTIndex *) index_find(space, index_id);
 	if (iterator >= iterator_type_MAX)
 		tnt_raise(IllegalParams, "Invalid iterator type");
-	enum iterator_type type = (enum iterator_type) iterator;
 
 	uint32_t part_count = key ? mp_decode_array(&key) : 0;
-	key_validate(index->key_def, type, key, part_count);
-
 	struct iterator *it = index->position();
+	enum iterator_type type = (enum iterator_type) iterator;
 	index->initIterator(it, type, key, part_count);
-
-	struct tuple *tuple;
-	while ((tuple = it->next(it)) != NULL) {
-		if (offset > 0) {
-			offset--;
-			continue;
-		}
-		if (limit == found++)
-			break;
+	struct tuple *tuple = NULL;
+	if ((tuple = it->next(it)) != NULL) {
 		port_add_tuple(port, tuple);
 	}
-#endif
-	panic("executeSelect, not implemented");
 }
-
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 WiredtigerEngine::WiredtigerEngine() : Engine("wiredtiger"), wk_server(NULL)

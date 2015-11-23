@@ -11,7 +11,10 @@
 WTIndex::WTIndex(struct key_def *key_def_arg)
         : Index(key_def_arg)
 {
-    //struct space *space = space_cache_find(key_def->space_id);
+    struct space *space = space_cache_find(key_def->space_id);
+	format = space->format;
+	tuple_format_ref(format, 1);
+	printf("struct index format id = %u\n",format->id);
 #if 0
     SophiaEngine *engine =
             (SophiaEngine *)space->handler->engine;
@@ -31,41 +34,73 @@ WTIndex::WTIndex(struct key_def *key_def_arg)
 #endif
 }
 
-struct tuple *
-WTIndex::findByKey(const char * /* key */ , uint32_t /*part_count*/ = 0) const
+void*
+wt_tuple_new(const uint64_t key, WT_ITEM *value, struct key_def *key_def,
+             struct tuple_format *format,
+             uint32_t *bsize)
 {
-    panic("findByKey, not implemented");
-#if 0
-    (void)part_count;
-    void *obj = ((SophiaIndex *)this)->createObject(key, true, NULL);
-    void *transaction = db;
-    /* engine_tx might be empty, even if we are in txn context.
-     *
-     * This can happen on a first-read statement. */
-    if (in_txn())
-        transaction = in_txn()->engine_tx;
-    obj = sp_get(transaction, obj);
-    if (obj == NULL)
-        return NULL;
-    int rc = sp_getint(obj, "status");
-    if (rc == 0) {
-        sp_destroy(obj);
-        fiber_yield();
-        obj = fiber_get_key(fiber(), FIBER_KEY_MSG);
-        if (obj == NULL)
-            return NULL;
-        rc = sp_getint(obj, "status");
-        if (rc <= 0 || rc == 2) {
-            sp_destroy(obj);
-            return NULL;
-        }
-    }
-    struct tuple *tuple =
-            (struct tuple *)sophia_tuple_new(obj, key_def, format, NULL);
-    sp_destroy(obj);
-    return tuple;
-#endif
-    return NULL;
+	assert(key_def->part_count == 1);
+	(void) bsize;
+	int size = 0;
+	/*calc the tuple size*/
+	const char *value_ptr = (const char*)value->data;
+	const char *value_ptr_end = value_ptr + value->size;
+	size += mp_sizeof_uint(key);
+	size += value->size;
+	int count = key_def->part_count;
+	while (value_ptr < value_ptr_end) {
+		count++;
+		mp_next(&value_ptr);
+	}
+	size += mp_sizeof_array(count);
+	if (bsize) {
+		*bsize = size;
+	}
+	/* build tuple */
+	struct tuple *tuple = NULL;
+	char *p = NULL;
+	char *raw = NULL;
+
+	if (format) {
+		tuple = tuple_alloc(format, size);
+		p = tuple->data;
+	} else {
+		raw = (char *)malloc(size);
+		if (raw == NULL)
+			tnt_raise(ClientError, ER_MEMORY_ISSUE, size, "tuple");
+		p = raw;
+	}
+	p = mp_encode_array(p, 2);
+	for (int i = 0; i < key_def->part_count; i++) {
+		if (key_def->parts[i].type == STRING)
+			//p = mp_encode_str(p, parts[i].part, parts[i].size);
+			tnt_raise(ClientError, ER_KEY_PART_TYPE, i, "STRING");
+		else
+			p = mp_encode_uint(p, key);
+	}
+	memcpy(p, value->data, value->size);
+	if (format) {
+		try {
+			tuple_init_field_map(format, tuple, (uint32_t *)tuple);
+		} catch (...) {
+			tuple_delete(tuple);
+			throw;
+		}
+		return tuple;
+	}
+	return raw;
+}
+
+struct tuple *
+WTIndex::findByKey(const char *key, uint32_t part_count) const
+{
+	assert(part_count == 1);
+	uint64_t recv_key = mp_decode_uint(&key);
+	WT_ITEM recv_data;
+	wk_server->get_value(table_name, recv_key, &recv_data);
+	printf("get value in find by key = %.*s\n", (int)recv_data.size, (char *)recv_data.data);
+	struct tuple *tuple = (struct tuple *)wt_tuple_new(recv_key, &recv_data, key_def, format, NULL);
+	return tuple;
 }
 
 struct tuple *
@@ -78,101 +113,150 @@ WTIndex::replace(struct tuple*, struct tuple*, enum dup_replace_mode)
     return NULL;
 }
 
+struct wt_iterator {
+	struct iterator base;
+	const char *key;
+	const char *keyend;
+	struct space *space;
+	struct key_def *key_def;
+	int open;
+	void *env;
+	void *db;
+	void *cursor;
+	void *current;
+};
+
+struct tuple *
+wt_iterator_next(struct iterator *ptr)
+{
+	assert(ptr->next == wt_iterator_next);
+	struct wt_iterator *it = (struct wt_iterator *) ptr;
+	(void) it;
+#if 0
+	assert(it->cursor != NULL);
+	if (it->open) {
+		it->open = 0;
+		if (it->current) {
+			return (struct tuple *)
+				wt_tuple_new(it->current, it->key_def,
+				                 it->space->format,
+				                 NULL);
+		} else {
+			return NULL;
+		}
+	}
+	/* try to read next key from cache */
+	sp_setint(it->current, "async", 0);
+	sp_setint(it->current, "cache_only", 1);
+	sp_setint(it->current, "immutable", 1);
+	void *obj = sp_get(it->cursor, it->current);
+	sp_setint(it->current, "async", 1);
+	sp_setint(it->current, "cache_only", 0);
+	sp_setint(it->current, "immutable", 0);
+	/* key found in cache */
+	if (obj) {
+		sp_destroy(it->current);
+		it->current = obj;
+		return (struct tuple *)
+			sophia_tuple_new(obj, it->key_def, it->space->format, NULL);
+	}
+
+	/* retry search, but use disk this time */
+	obj = sp_get(it->cursor, it->current);
+	it->current = NULL;
+	if (obj == NULL)
+		return NULL;
+	sp_destroy(obj);
+	fiber_yield();
+	obj = fiber_get_key(fiber(), FIBER_KEY_MSG);
+	if (obj == NULL)
+		return NULL;
+	int rc = sp_getint(obj, "status");
+	if (rc <= 0) {
+		sp_destroy(obj);
+		return NULL;
+	}
+	it->current = obj;
+	return (struct tuple *)
+		sophia_tuple_new(obj, it->key_def, it->space->format, NULL);
+#endif
+	return NULL;
+}
+
+
+struct tuple *
+wt_iterator_last(struct iterator */*ptr*/)
+{
+	return NULL;
+}
+
+struct tuple *
+wt_iterator_eq(struct iterator *ptr)
+{
+	ptr->next = wt_iterator_last;
+	struct wt_iterator *it = (struct wt_iterator *) ptr;
+	//assert(it->cursor == NULL);
+	WTIndex *index = (WTIndex *)index_find(it->space, it->key_def->iid);
+	return index->findByKey(it->key, it->key_def->part_count);
+}
+
 struct iterator *
 WTIndex::allocIterator() const
 {
-    panic("allocIterator, not implemented");
-#if 0
-    struct sophia_iterator *it =
-            (struct sophia_iterator *) calloc(1, sizeof(*it));
-    if (it == NULL) {
-        tnt_raise(ClientError, ER_MEMORY_ISSUE,
-                  sizeof(struct sophia_iterator), "Sophia Index",
-                  "iterator");
-    }
-    it->base.next = sophia_iterator_next;
-    it->base.free = sophia_iterator_free;
-    it->cursor = NULL;
-    return (struct iterator *) it;
-#endif
-    return NULL;
+	struct wt_iterator *it =
+		(struct wt_iterator *) calloc (1, sizeof(wt_iterator));
+	if (it == NULL) {
+		tnt_raise(ClientError, ER_MEMORY_ISSUE,
+		          sizeof(struct wt_iterator), "wt Index",
+		          "iterator");
+	}
+	it->base.next = wt_iterator_next;
+	it->base.free = NULL;
+	it->cursor = NULL;
+    return (struct iterator *)it;
 }
 
 void
-WTIndex::initIterator(struct iterator * /* ptr */,
-                          enum iterator_type /* type */,
-                          const char * /* key */, uint32_t /* part_count */) const
+WTIndex::initIterator(struct iterator * ptr,
+                          enum iterator_type type,
+                          const char * key, uint32_t part_count) const
 {
-    panic("initIterator, not implemented");
-#if 0
-    struct sophia_iterator *it = (struct sophia_iterator *) ptr;
-    assert(it->cursor == NULL);
-    if (part_count > 0) {
-        if (part_count != key_def->part_count) {
-            tnt_raise(ClientError, ER_UNSUPPORTED,
-                      "Sophia Index iterator", "uncomplete keys");
-        }
-    } else {
-        key = NULL;
-    }
-    it->key = key;
-    it->key_def = key_def;
-    it->env = env;
-    it->db = db;
-    it->space = space_cache_find(key_def->space_id);
-    it->current = NULL;
-    it->open = 1;
-    const char *compare;
-    switch (type) {
-        case ITER_EQ:
-            it->base.next = sophia_iterator_eq;
-            return;
-        case ITER_ALL:
-        case ITER_GE: compare = ">=";
-            break;
-        case ITER_GT: compare = ">";
-            break;
-        case ITER_LE: compare = "<=";
-            break;
-        case ITER_LT: compare = "<";
-            break;
-        default:
-            tnt_raise(ClientError, ER_UNSUPPORTED,
-                      "Sophia Index", "requested iterator type");
-    }
-    it->base.next = sophia_iterator_next;
-    it->cursor = sp_cursor(env);
-    if (it->cursor == NULL)
-        sophia_error(env);
-    void *obj = ((SophiaIndex *)this)->createObject(key, true, &it->keyend);
-    sp_setstring(obj, "order", compare, 0);
-    /* Position first key here, since key pointer might be
-     * unavailable from lua.
-     *
-     * Read from disk and fill cursor cache.
-     */
-    obj = sp_get(it->cursor, obj);
-    if (obj == NULL) {
-        sp_destroy(it->cursor);
-        it->cursor = NULL;
-        return;
-    }
-    sp_destroy(obj);
-    fiber_yield();
-    obj = fiber_get_key(fiber(), FIBER_KEY_MSG);
-    if (obj == NULL) {
-        it->current = NULL;
-        return;
-    }
-    int rc = sp_getint(obj, "status");
-    if (rc <= 0) {
-        it->current = NULL;
-        sp_destroy(obj);
-        return;
-    }
-    it->current = obj;
-#endif
-
+	printf("part count = %u\n", part_count);
+	struct wt_iterator *it = (struct wt_iterator *) ptr;
+	//assert(it->cursor == NULL);
+	if (part_count > 0) {
+		if (part_count != key_def->part_count) {
+			tnt_raise(ClientError, ER_UNSUPPORTED,
+			          "wt Index iterator", "uncomplete keys");
+		}
+	} else {
+		key = NULL;
+	}
+	it->key = key;
+	it->key_def = key_def;
+	it->space = space_cache_find(key_def->space_id);
+	it->current = NULL;
+	it->open = 1;
+	const char *compare;
+	switch (type) {
+		case ITER_EQ:
+			it->base.next = wt_iterator_eq;
+			return;
+		case ITER_ALL:
+		case ITER_GE: compare = ">=";
+			break;
+		case ITER_GT: compare = ">";
+			break;
+		case ITER_LE: compare = "<=";
+			break;
+		case ITER_LT: compare = "<";
+			break;
+		default:
+			tnt_raise(ClientError, ER_UNSUPPORTED,
+			          "wt Index", "requested iterator type");
+	}
+	(void) compare;
+	it->base.next = wt_iterator_next;
 }
 
 /* non-interface function  */
@@ -216,11 +300,23 @@ WTIndex::replace_or_insert(const char *tuple,
         i++;
     } // end while
 #endif
+	(void)recv_data;
     uint64_t key = mp_decode_uint(&recv_data);
-    uint32_t value_size = 0;
-    const char *value = mp_decode_str(&recv_data, &value_size);
-    printf("key = %lu, value = %.*s\n", key, value_size, value);
-    wk_server->put_value(table_name, key, value);
+    //uint32_t value_size = 0;
+	WT_ITEM insert_value;
+	insert_value.data = recv_data;
+	insert_value.size = tuple_end-recv_data;
+    wk_server->put_value(table_name, key, &insert_value);
+
+	WT_ITEM tmp_value;
+    wk_server->get_value(table_name, key, &tmp_value);
+	printf("get the value = %.*s\n", (int)tmp_value.size, (char*)tmp_value.data);
+
+	printf("recv size = %lu, get size = %lu\n", tuple_end-recv_data, tmp_value.size);
+
+	uint32_t value_size = 0;
+	const char *value = mp_decode_str(&recv_data, &value_size);
+	printf("key = %lu, value = %.*s, size = %u\n", key, value_size, value, value_size);
     /* replace */
     /*
     void *transaction = in_txn()->engine_tx;

@@ -84,7 +84,7 @@ namespace wukong {
         return true;
     }
 
-    bool WKServer::put_value(const char *table_name, const uint64_t key, const char *value) {
+    bool WKServer::put_value(const char *table_name, const uint64_t key, WT_ITEM *value) {
         int ret = 0;
         bool status = true;
         WT_SESSION *session;
@@ -155,7 +155,8 @@ namespace wukong {
         return status;
     }
 
-    bool WKServer::get_value(const std::string *table_name, const WT_ITEM &key, std::string &value) {
+    bool WKServer::get_value(const char *table_name, const uint64_t &key, WT_ITEM *value) {
+	    printf("run at the get_value\n");
         int ret = 0;
         bool status = true;
         WT_SESSION *session;
@@ -164,20 +165,19 @@ namespace wukong {
             return false;
         }
         WT_CURSOR *cursor;
-        if ((ret = session->open_cursor(session, table_name->c_str(), NULL, "raw", &cursor)) != 0) {
+        if ((ret = session->open_cursor(session, table_name, NULL, NULL, &cursor)) != 0) {
             fprintf(stderr, "get value :%s\n", wiredtiger_strerror(ret));
             session->close(session, NULL);
             return false;
         }
-
         WT_ITEM item;
-        cursor->set_key(cursor, &key);
+        cursor->set_key(cursor, key);
         ret = cursor->search(cursor);
         if (0 == ret) {
             ret = cursor->get_value(cursor, &item);
             if (0 == ret) {
-                value = std::string((const char *) item.data, item.size);
-                ret = cursor->reset(cursor);
+                value->data = item.data;
+	            value->size = item.size;
             }
         }
         else if (ret == WT_NOTFOUND) {

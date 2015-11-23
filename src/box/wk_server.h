@@ -72,12 +72,12 @@ namespace wukong {
 
         bool drop_table(const std::string *table_name);
 
-        bool put_value(const char *table_name, const uint64_t key, const char *value);
+        bool put_value(const char *table_name, const uint64_t key, WT_ITEM *value);
 
         bool put_multi_value(const std::string *table_name, const std::vector <std::string> &mul_key,
                              const std::vector <std::string> &mul_value);
 
-        bool get_value(const std::string *table_name, const WT_ITEM &key, std::string &value);
+        bool get_value(const char *table_name, const uint64_t &key, WT_ITEM *value);
 
         bool get_multi_value(const std::string *table_name, const std::vector <std::string> &key,
                              std::vector <std::string> &value);
