@@ -416,7 +416,9 @@ Index* WiredtigerEngine::createIndex(struct key_def *key_def) {
     }
     printf("table name = %s, value_format = %s\n", table_name, value_format);
     wk_server->create_table(table_name, value_format);
-	return new WTIndex(key_def);
+    WTIndex *tmp = new WTIndex(key_def);
+    tmp->init(wk_server, table_name);
+	return (Index*)tmp;
 }
 
 bool WiredtigerEngine::needToBuildSecondaryKey(struct space *space) {
