@@ -13,6 +13,8 @@
 #include <string>
 #include <sstream>
 
+#include "misc/time_util.h"
+
 struct tuple*WsIndex::findByKey(const char *key,
                                 uint32_t part_count) const {
 	say_info("%s, %u", key, part_count);
@@ -67,32 +69,18 @@ void WsIndex::insert(const char *tuple, const char *tuple_end,
 	uint32_t size = tuple_end - tuple;
 
 	const char * recv_data = tuple_field_raw(tuple, size, 0);
-	say_info("recv_data=[%p]", recv_data);
-
 	uint64_t offset = mp_decode_uint(&recv_data);
 
 	uint32_t len = 0;
 	const char * str = mp_decode_str(&recv_data, &len);
-	std::string s(str, len);
 
-	say_info("index_num=[%u], offset=[%lu], [content]=[%s]",
-	         key_def->iid, offset, s.c_str());
+	(void) str;
+	(void) offset;
 
-	std::stringstream ss;
-	ss << offset;
-
-	const char* filename = ss.str().c_str();
-	say_info("filename=[%s]", filename);
-	FILE* f = fopen(filename, "w");
-	if (f == NULL) {
-		say_error("open file error");
-		return;
-	}
-	fwrite(s.c_str(), s.size(), 1, f);
-	fclose(f);
-
-	int r = m_ws_index->addFile("/mnt/hgfs/work/loginsight/tarantool/bld/src/123456", NULL);
-	say_info("addFile: ret=[%d]", r);
+	ws::TimeUtil *timer = ws::TimeUtil::getInstance();
+	timer->time_start("addDoc");
+	m_ws_index->addDoc(offset, str, len);
+	timer->time_end("addDoc");
 
 }
 
@@ -124,4 +112,14 @@ int WsIndex::init() {
 	printf("workdir=%s\n", workDir);
 
 	return false;
+}
+
+void WsIndex::get_result(const std::string &query, std::string &result) {
+
+	ws::ExtentList *list = m_ws_index->getPostings(query.c_str(), getuid());
+	ws::ExtentList *doc = m_ws_index->getPostings(ws::START_DOC, getuid());
+	say_info("list=[%p], size=[%lu], term=[%s], doc_size=[%lu]",
+	         list, list->getTotalSize(), query.c_str(), doc->getTotalSize());
+
+	result += "abc";
 }

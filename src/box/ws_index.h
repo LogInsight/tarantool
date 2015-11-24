@@ -14,17 +14,24 @@
 
 #include "index/index.h"
 #include "query/query.h"
+#include "tuple.h"
 
 
 class WsIndex : public Index
 {
 public:
-	WsIndex(struct key_def *key_def) : Index(key_def) {
+	WsIndex(struct key_def *key_def) : Index(key_def), m_ws_index(nullptr) {
+
 	}
 
 	int init();
 
-	~WsIndex() {};
+	~WsIndex() {
+		if (m_ws_index) {
+			delete m_ws_index;
+			m_ws_index = nullptr;
+		}
+	};
 
 	virtual struct tuple *findByKey(const char *key, uint32_t part_count) const;
 
@@ -47,30 +54,46 @@ public:
 		            dup_replace_mode mode);
 
 
-	inline struct iterator *position() const
-	{
+	inline struct iterator *position() const {
 		if (m_position == NULL)
 			m_position = allocIterator();
 		return m_position;
 	}
 
-	void get_result(const std::string query, std::string& result) {
-		ws::Query *q = new ws::Query(m_ws_index, query.c_str(), getuid());
-		q->parse();
-		char responseLine[1024];
-		int statusCode;
-		while (q->getNextLine(responseLine))
-			printf("%s\n", responseLine);
-		q->getStatus(&statusCode, responseLine);
-		printf("@%d-%s\n", statusCode, responseLine);
-		delete q;
-		result += "123, 321";
-	}
+	void get_result(const std::string &query, std::string &result);
+
 protected:
 	mutable struct iterator *m_position;
 
 private:
+	std::string m_cur_dir;
 	ws::Index* m_ws_index;
+};
+
+
+class WsIndexIterator {
+public:
+
+	WsIndexIterator() :
+			m_ws_index(nullptr),
+			m_doc(nullptr),
+			m_list(nullptr) {
+
+	}
+
+	~WsIndexIterator() {
+
+	}
+
+	tuple* next() {
+		return nullptr;
+	}
+
+private:
+	const ws::Index* m_ws_index;
+	ws::ExtentList* m_doc;
+	ws::ExtentList* m_list;
+
 };
 
 #endif

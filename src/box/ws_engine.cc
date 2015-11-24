@@ -12,6 +12,7 @@
 #include "tuple.h"
 #include "iproto_constants.h"
 #include "port.h"
+#include "misc/time_util.h"
 
 WsEngine::WsEngine() : Engine("ws") { }
 
@@ -51,12 +52,9 @@ struct tuple *WumpusSapce::executeReplace(txn *txn, space *space,
 	(void) space;
 	(void) request;
 
-	int size = request->tuple_end - request->tuple;
-	const char *key =
-			tuple_field_raw(request->tuple, size, 0);
+	//TODO add validcation
+
 	WsIndex * index = (WsIndex *)index_find(space, 0);
-	say_info("key=[%s], index=[%p], pkey=[%p], ptuple=[%p]",
-	         key, index, key, request->tuple);
 
 	enum dup_replace_mode mode = DUP_REPLACE_OR_INSERT;
 	if (request->type == IPROTO_INSERT) {
@@ -65,6 +63,11 @@ struct tuple *WumpusSapce::executeReplace(txn *txn, space *space,
 
 	index->insert(request->tuple, request->tuple_end, mode);
 
+	static int times = 0;
+	times++;
+	if (times % 10000 == 0) {
+		ws::TimeUtil::getInstance()->print_times();
+	}
 	return nullptr;
 
 }
@@ -74,10 +77,10 @@ void WumpusSapce::executeSelect(struct txn *txn, space *space,
                                 uint32_t offset, uint32_t limit,
                                 const char *key, const char *key_end,
                                 struct port *port) {
-	say_info("WumpusSapce::executeSelect(txn=%p, structspace=%p, index_id=%u,"
-			          "iterator=%u, offset=%u, limit=%u, ",
-	         txn, space, index_id, iterator, offset,
-	         limit);
+//	say_info("WumpusSapce::executeSelect(txn=%p, structspace=%p, index_id=%u,"
+//			          "iterator=%u, offset=%u, limit=%u, ",
+//	         txn, space, index_id, iterator, offset,
+//	         limit);
 
 	(void) txn;
 	(void) space;
@@ -126,7 +129,7 @@ void WumpusSapce::executeSelect(struct txn *txn, space *space,
 	std::string result;
 
 	index->get_result(q, result);
-	say_info("q=[%s], result=[%s]", q.c_str(), result.c_str());
+//	say_info("q=[%s], result=[%s]", q.c_str(), result.c_str());
 
 }
 

@@ -24,7 +24,7 @@ print()
 
 
 print("----------start select-------------------------------")
-box.space.ws:select{"\"aa\""}
+box.space.ws:select{"aa"}
 print("----------end select---------------------------------")
 print()
 print()
