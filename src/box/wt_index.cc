@@ -35,7 +35,7 @@ WTIndex::WTIndex(struct key_def *key_def_arg)
 }
 
 void*
-wt_tuple_new(const uint64_t key, WT_ITEM *value, struct key_def *key_def,
+wt_tuple_new(const uint64_t key, const char *value, struct key_def *key_def,
              struct tuple_format *format,
              uint32_t *bsize)
 {
@@ -43,10 +43,10 @@ wt_tuple_new(const uint64_t key, WT_ITEM *value, struct key_def *key_def,
 	(void) bsize;
 	int size = 0;
 	/*calc the tuple size*/
-	const char *value_ptr = (const char*)value->data;
-	const char *value_ptr_end = value_ptr + value->size;
+	const char *value_ptr = value;
+	const char *value_ptr_end = value_ptr + strlen(value);
 	size += mp_sizeof_uint(key);
-	size += value->size;
+	size += strlen(value);
 	int count = key_def->part_count;
 	while (value_ptr < value_ptr_end) {
 		count++;
@@ -78,7 +78,7 @@ wt_tuple_new(const uint64_t key, WT_ITEM *value, struct key_def *key_def,
 		else
 			p = mp_encode_uint(p, key);
 	}
-	memcpy(p, value->data, value->size);
+	memcpy(p, value, strlen(value));
 	if (format) {
 		try {
 			tuple_init_field_map(format, tuple, (uint32_t *)tuple);
@@ -96,10 +96,10 @@ WTIndex::findByKey(const char *key, uint32_t part_count) const
 {
 	assert(part_count == 1);
 	uint64_t recv_key = mp_decode_uint(&key);
-	WT_ITEM recv_data;
-	wk_server->get_value(table_name, recv_key, &recv_data);
-	printf("get value in find by key = %.*s\n", (int)recv_data.size, (char *)recv_data.data);
-	struct tuple *tuple = (struct tuple *)wt_tuple_new(recv_key, &recv_data, key_def, format, NULL);
+	const char *recv_data;
+	wk_server->get_value(table_name, recv_key, recv_data);
+	//printf("get value in find by key = %s, recv_data size = %lu\n", recv_data, sizeof(recv_data));
+	struct tuple *tuple = (struct tuple *)wt_tuple_new(recv_key, recv_data, key_def, format, NULL);
 	return tuple;
 }
 
@@ -223,7 +223,6 @@ WTIndex::initIterator(struct iterator * ptr,
 {
 	printf("part count = %u\n", part_count);
 	struct wt_iterator *it = (struct wt_iterator *) ptr;
-	//assert(it->cursor == NULL);
 	if (part_count > 0) {
 		if (part_count != key_def->part_count) {
 			tnt_raise(ClientError, ER_UNSUPPORTED,
@@ -280,8 +279,6 @@ WTIndex::replace_or_insert(const char *tuple,
     }
     */
     (void)mode;
-    // dup the value
-    printf("index num = %u\n", key_def->iid);
 #if 0
     while (i < key_def->part_count) {
         const char *part;
@@ -306,8 +303,20 @@ WTIndex::replace_or_insert(const char *tuple,
 	WT_ITEM insert_value;
 	insert_value.data = recv_data;
 	insert_value.size = tuple_end-recv_data;
-    wk_server->put_value(table_name, key, &insert_value);
-
+	memcpy(mem_pool, recv_data, insert_value.size);
+	mem_pool[insert_value.size + 1] = '\0';
+	//printf("size = %u, insert_value = %lu\n", size, insert_value.size);
+    wk_server->put_value(table_name, key, mem_pool);
+	//printf("recv data = %s\n", recv_data);
+/*
+	const char *tmp_value = NULL;
+	wk_server->get_value(table_name, key, tmp_value);
+	printf("tmp value = %s\n", tmp_value);
+	uint32_t value_size = 0;
+	const char *result_value = mp_decode_str(&tmp_value, &value_size);
+	printf("result value = %.*s\n", value_size, result_value);
+*/
+ /*
 	WT_ITEM tmp_value;
     wk_server->get_value(table_name, key, &tmp_value);
 	printf("get the value = %.*s\n", (int)tmp_value.size, (char*)tmp_value.data);
@@ -317,6 +326,7 @@ WTIndex::replace_or_insert(const char *tuple,
 	uint32_t value_size = 0;
 	const char *value = mp_decode_str(&recv_data, &value_size);
 	printf("key = %lu, value = %.*s, size = %u\n", key, value_size, value, value_size);
+*/
     /* replace */
     /*
     void *transaction = in_txn()->engine_tx;
