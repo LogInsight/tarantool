@@ -47,7 +47,7 @@
 #include "memtx_index.h"
 #include "sysview_engine.h"
 #include "sophia_engine.h"
-#include "wumpus_engine.h"
+#include "ws_engine.h"
 #include "wt_engine.h"
 #include "space.h"
 #include "port.h"
@@ -780,9 +780,9 @@ engine_init()
 	sophia->init();
 	engine_register(sophia);
 
-	WumpusEngine * wumpus = new WumpusEngine();
+	WsEngine * ws = new WsEngine();
 //	wumpus->init();
-	engine_register(wumpus);
+	engine_register(ws);
 
 	WiredtigerEngine *wiredtiger = new WiredtigerEngine();
 	wiredtiger->init();

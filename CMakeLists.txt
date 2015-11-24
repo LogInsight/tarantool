@@ -57,6 +57,8 @@ include(cmake/FindSphinx.cmake)
 include(cmake/systemd.cmake)
 include(cmake/module.cmake)
 include(cmake/thread.cmake)
+include(cmake/BuildLivWS.cmake)
+
 
 if (NOT READLINE_FOUND)
     message(FATAL_ERROR "readline library not found.")
@@ -176,6 +178,8 @@ include_directories(${PROJECT_BINARY_DIR}/src)
 include_directories(${PROJECT_SOURCE_DIR}/src/lib)
 include_directories(${PROJECT_SOURCE_DIR}/src/lib/small)
 include_directories(${PROJECT_SOURCE_DIR})
+include_directories(${PROJECT_SOURCE_DIR}/third_party/wumpus)
+
 
 #
 # Specify Tarantool modules prefixes
@@ -365,10 +369,13 @@ include (cmake/package.cmake)
 #
 include (cmake/rpm.cmake)
 
+link_directories(${PROJECT_SOURCE_DIR}/lib)
+
 add_subdirectory(src)
 add_subdirectory(extra)
 add_subdirectory(test)
 add_subdirectory(doc)
+
 
 install (FILES README.md LICENSE
          DESTINATION share/doc/tarantool)

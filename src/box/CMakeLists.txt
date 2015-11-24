@@ -41,11 +41,11 @@ add_library(box
     sysview_index.cc
     sophia_engine.cc
     sophia_index.cc
-    wumpus_engine.cc
-    wumpus_index.cc
     wt_engine.cc
     wt_index.cc
     wk_server.cc
+    ws_engine.cc
+    ws_index.cc
     space.cc
     func.cc
     alter.cc
