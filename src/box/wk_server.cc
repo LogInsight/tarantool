@@ -84,7 +84,7 @@ namespace wukong {
         return true;
     }
 
-    bool WKServer::put_value(const char *table_name, const uint64_t key, WT_ITEM *value) {
+    bool WKServer::put_value(const char *table_name, const uint64_t key, const char *value) {
         int ret = 0;
         bool status = true;
         WT_SESSION *session;
@@ -155,8 +155,7 @@ namespace wukong {
         return status;
     }
 
-    bool WKServer::get_value(const char *table_name, const uint64_t &key, WT_ITEM *value) {
-	    printf("run at the get_value\n");
+    bool WKServer::get_value(const char *table_name, const uint64_t &key, const char *&value) {
         int ret = 0;
         bool status = true;
         WT_SESSION *session;
@@ -170,15 +169,10 @@ namespace wukong {
             session->close(session, NULL);
             return false;
         }
-        WT_ITEM item;
         cursor->set_key(cursor, key);
         ret = cursor->search(cursor);
         if (0 == ret) {
-            ret = cursor->get_value(cursor, &item);
-            if (0 == ret) {
-                value->data = item.data;
-	            value->size = item.size;
-            }
+            ret = cursor->get_value(cursor, &value);
         }
         else if (ret == WT_NOTFOUND) {
             fprintf(stderr, "get value :%s\n", wiredtiger_strerror(ret));

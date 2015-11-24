@@ -62,6 +62,7 @@ public:
                            enum dup_replace_mode mode);
     inline void init(wukong::WKServer *server, const char *name) {
         wk_server = server;
+        mem_pool = (char*) malloc (4 * 1024 * 1024);
         snprintf(table_name, 128, "%s", name);
     }
 protected:
@@ -71,6 +72,7 @@ protected:
      */
     mutable struct iterator *m_position;
 private:
+    char *mem_pool;
     char table_name[128];
     wukong::WKServer *wk_server;
     struct tuple_format *format;
