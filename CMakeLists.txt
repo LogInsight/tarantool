@@ -356,6 +356,9 @@ sophia_build()
 include(BuildWS)
 ws_build()
 
+include(BuildSFrame)
+sframe_build()
+
 option(ENABLE_RPM "Enable install of a RPM specific files" OFF)
 
 # cpack config. called package.cmake to avoid

@@ -12,6 +12,7 @@ macro(ws_build)
         add_custom_command(OUTPUT ${PROJECT_SOURCE_DIR}/third_party/wumpus/bld/libws.a
             WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/third_party/wumpus/bld
             COMMAND $(MAKE) ${SOPHIA_OPTS} clean
+            #TODO modify this condition
        )
     else()
         add_custom_command(OUTPUT ${WS_DIR}
