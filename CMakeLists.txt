@@ -57,7 +57,6 @@ include(cmake/FindSphinx.cmake)
 include(cmake/systemd.cmake)
 include(cmake/module.cmake)
 include(cmake/thread.cmake)
-include(cmake/BuildLivWS.cmake)
 
 
 if (NOT READLINE_FOUND)
@@ -353,6 +352,9 @@ add_dependencies(build_bundled_libs misc)
 
 include(BuildSophia)
 sophia_build()
+
+include(BuildWS)
+ws_build()
 
 option(ENABLE_RPM "Enable install of a RPM specific files" OFF)
 

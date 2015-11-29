@@ -1,0 +1,3 @@
+apt-get install libreadline-dev -y
+apt-get install autoconf -y
+ apt-get install zlib1g-dev -y

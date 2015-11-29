@@ -79,3 +79,4 @@ add_library(box
     ${bin_sources})
 
 target_link_libraries(box ${sophia_lib})
+target_link_libraries(box ${ws_lib})
