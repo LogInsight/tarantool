@@ -70,7 +70,7 @@ set (core_sources
 
 add_library(core STATIC ${core_sources})
 target_link_libraries(core
-    salad small pthread
+    salad small pthread crypt z
     ${LIBEV_LIBRARIES}
     ${LIBCORO_LIBRARIES}
 )
@@ -202,7 +202,7 @@ add_executable(
 	${LIBUTIL_FREEBSD_SRC}/pidfile.c)
 add_dependencies(tarantool build_bundled_libs)
 target_link_libraries(tarantool box ${common_libraries})
-target_link_libraries(tarantool crypt z)
+target_link_libraries(tarantool wiredtiger)
 
 if (TARGET_OS_DARWIN)
     # Necessary to make LuaJIT work on Darwin, see
