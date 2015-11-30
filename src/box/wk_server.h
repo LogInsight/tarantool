@@ -15,7 +15,7 @@
 #include <sstream>
 #include <iostream>
 
-#include "wiredtiger_ext.h"
+//#include "wiredtiger_ext.h"
 #include "wiredtiger.h"
 
 namespace wukong {
@@ -72,12 +72,12 @@ namespace wukong {
 
         bool drop_table(const std::string *table_name);
 
-        bool put_value(const char *table_name, const uint64_t key, const char *value);
+        bool put_value(const char *table_name, const uint64_t key, WT_ITEM *value);
 
         bool put_multi_value(const std::string *table_name, const std::vector <std::string> &mul_key,
                              const std::vector <std::string> &mul_value);
 
-        bool get_value(const char *table_name, const uint64_t &key, const char *&value);
+        bool get_value(const char *table_name, const uint64_t &key, WT_ITEM *value);
 
         bool get_multi_value(const std::string *table_name, const std::vector <std::string> &key,
                              std::vector <std::string> &value);
@@ -88,13 +88,13 @@ namespace wukong {
 
         WT_CONNECTION *get_connection() { return m_conn; };
 
-        WT_EXTENSION_API *get_wt_api() { return m_wt_api; };
+        //WT_EXTENSION_API *get_wt_api() { return m_wt_api; };
     private:
         WT_CONNECTION *m_conn;
         OpContext *m_context;
         int m_status;
         const char *m_home;
-        WT_EXTENSION_API *m_wt_api;
+        //WT_EXTENSION_API *m_wt_api;
     };
 }
 #endif

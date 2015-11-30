@@ -34,7 +34,7 @@ namespace wukong {
             fprintf(stderr, "Error open the connect :%s\n", wiredtiger_strerror(ret));
             return false;
         }
-        m_wt_api = m_conn->get_extension_api(m_conn);
+        //m_wt_api = m_conn->get_extension_api(m_conn);
         printf("connect ok\n");
         return true;
     }
@@ -84,7 +84,7 @@ namespace wukong {
         return true;
     }
 
-    bool WKServer::put_value(const char *table_name, const uint64_t key, const char *value) {
+    bool WKServer::put_value(const char *table_name, const uint64_t key, WT_ITEM *value) {
         int ret = 0;
         bool status = true;
         WT_SESSION *session;
@@ -155,7 +155,7 @@ namespace wukong {
         return status;
     }
 
-    bool WKServer::get_value(const char *table_name, const uint64_t &key, const char *&value) {
+    bool WKServer::get_value(const char *table_name, const uint64_t &key, WT_ITEM *value) {
         int ret = 0;
         bool status = true;
         WT_SESSION *session;
@@ -169,10 +169,15 @@ namespace wukong {
             session->close(session, NULL);
             return false;
         }
+        WT_ITEM item;
         cursor->set_key(cursor, key);
         ret = cursor->search(cursor);
         if (0 == ret) {
-            ret = cursor->get_value(cursor, &value);
+            ret = cursor->get_value(cursor, &item);
+            if ( ret == 0) {
+                value->data = item.data;
+                value->size = item.size;
+            }
         }
         else if (ret == WT_NOTFOUND) {
             fprintf(stderr, "get value :%s\n", wiredtiger_strerror(ret));

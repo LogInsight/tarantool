@@ -35,7 +35,7 @@ WTIndex::WTIndex(struct key_def *key_def_arg)
 }
 
 void*
-wt_tuple_new(const uint64_t key, const char *value, struct key_def *key_def,
+wt_tuple_new(const uint64_t key, WT_ITEM *value, struct key_def *key_def,
              struct tuple_format *format,
              uint32_t *bsize)
 {
@@ -43,10 +43,10 @@ wt_tuple_new(const uint64_t key, const char *value, struct key_def *key_def,
 	(void) bsize;
 	int size = 0;
 	/*calc the tuple size*/
-	const char *value_ptr = value;
-	const char *value_ptr_end = value_ptr + strlen(value);
+	const char *value_ptr = (const char *)value->data;
+	const char *value_ptr_end = value_ptr + value->size;
 	size += mp_sizeof_uint(key);
-	size += strlen(value);
+	size += value->size;
 	int count = key_def->part_count;
 	while (value_ptr < value_ptr_end) {
 		count++;
@@ -78,7 +78,7 @@ wt_tuple_new(const uint64_t key, const char *value, struct key_def *key_def,
 		else
 			p = mp_encode_uint(p, key);
 	}
-	memcpy(p, value, strlen(value));
+	memcpy(p, value->data, value->size);
 	if (format) {
 		try {
 			tuple_init_field_map(format, tuple, (uint32_t *)tuple);
@@ -96,10 +96,10 @@ WTIndex::findByKey(const char *key, uint32_t part_count) const
 {
 	assert(part_count == 1);
 	uint64_t recv_key = mp_decode_uint(&key);
-	const char *recv_data;
-	wk_server->get_value(table_name, recv_key, recv_data);
+	WT_ITEM recv_data;
+	wk_server->get_value(table_name, recv_key, &recv_data);
 	//printf("get value in find by key = %s, recv_data size = %lu\n", recv_data, sizeof(recv_data));
-	struct tuple *tuple = (struct tuple *)wt_tuple_new(recv_key, recv_data, key_def, format, NULL);
+	struct tuple *tuple = (struct tuple *)wt_tuple_new(recv_key, &recv_data, key_def, format, NULL);
 	return tuple;
 }
 
@@ -303,10 +303,8 @@ WTIndex::replace_or_insert(const char *tuple,
 	WT_ITEM insert_value;
 	insert_value.data = recv_data;
 	insert_value.size = tuple_end-recv_data;
-	memcpy(mem_pool, recv_data, insert_value.size);
-	mem_pool[insert_value.size + 1] = '\0';
 	//printf("size = %u, insert_value = %lu\n", size, insert_value.size);
-    wk_server->put_value(table_name, key, mem_pool);
+    wk_server->put_value(table_name, key, &insert_value);
 	//printf("recv data = %s\n", recv_data);
 /*
 	const char *tmp_value = NULL;

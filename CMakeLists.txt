@@ -179,7 +179,7 @@ include_directories(${PROJECT_SOURCE_DIR}/src/lib/small)
 include_directories(${PROJECT_SOURCE_DIR})
 include_directories(${PROJECT_SOURCE_DIR}/third_party/wumpus)
 include_directories(${PROJECT_BINARY_DIR}/third_party/wiredtiger)
-include_directories(${PROJECT_BINARY_DIR}/third_party/wiredtiger/src/include)
+#include_directories(${PROJECT_BINARY_DIR}/third_party/wiredtiger/src/include)
 #
 # Specify Tarantool modules prefixes
 #
