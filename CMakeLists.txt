@@ -178,8 +178,8 @@ include_directories(${PROJECT_SOURCE_DIR}/src/lib)
 include_directories(${PROJECT_SOURCE_DIR}/src/lib/small)
 include_directories(${PROJECT_SOURCE_DIR})
 include_directories(${PROJECT_SOURCE_DIR}/third_party/wumpus)
-
-
+include_directories(${PROJECT_BINARY_DIR}/third_party/wiredtiger)
+include_directories(${PROJECT_BINARY_DIR}/third_party/wiredtiger/src/include)
 #
 # Specify Tarantool modules prefixes
 #
@@ -356,8 +356,11 @@ sophia_build()
 include(BuildWS)
 ws_build()
 
-include(BuildSFrame)
-sframe_build()
+include(BuildWT)
+wiredtiger_build()
+
+#include(BuildSFrame)
+#sframe_build()
 
 option(ENABLE_RPM "Enable install of a RPM specific files" OFF)
 

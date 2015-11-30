@@ -80,3 +80,4 @@ add_library(box
 
 target_link_libraries(box ${sophia_lib})
 target_link_libraries(box ${ws_lib})
+target_link_libraries(box ${wt_lib})
