@@ -23,7 +23,3 @@
 [submodule "third_party/wiredtiger"]
 	path = third_party/wiredtiger
 	url = git@github.com:LogInsight/wiredtiger.git
-[submodule "third_party/sframe"]
-	path = third_party/sframe
-	url = git@github.com:LogInsight/SFrame.git
-	branch = t/tarantool
