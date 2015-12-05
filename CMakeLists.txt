@@ -359,8 +359,8 @@ ws_build()
 #include(BuildWT)
 #wiredtiger_build()
 
-#include(BuildSFrame)
-#sframe_build()
+include(BuildSFrame)
+sframe_build()
 
 option(ENABLE_RPM "Enable install of a RPM specific files" OFF)
 

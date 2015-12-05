@@ -18,21 +18,22 @@ macro(sframe_build)
         add_custom_command(OUTPUT ${SFRAME_DIR}
             COMMAND ${CMAKE_COMMAND} -E make_directory ${SFRAME_DIR})
 
-        add_custom_command(OUTPUT ${SFRAME_DIR}/bld/libsframe.config
+        add_custom_command(OUTPUT ${SFRAME_DIR}/release/Makefile
             WORKING_DIRECTORY ${SFRAME_DIR}
+	    COMMAND echo "copy the sframe dir*************"
             COMMAND ${CMAKE_COMMAND} -E copy_directory ${PROJECT_SOURCE_DIR}/third_party/sframe ${SFRAME_DIR}
             COMMAND ./configure 
-            DEPENDS ${PROJECT_BINARY_DIR}/CMakeCache.txt ${SFRAME})
+            DEPENDS ${PROJECT_BINARY_DIR}/CMakeCache.txt ${SFRAME_DIR})
 
-        add_custom_command(OUTPUT ${SFRAME_DIR}/bld/libsframe.build
-            WORKING_DIRECTORY ${SFRAME_DIR}/debug
-            COMMAND make
-            DEPENDS ${PROJECT_BINARY_DIR}/CMakeCache.txt ${SFRAME})
+        add_custom_command(OUTPUT ${SFRAME_DIR}/release/oss_src/sframe/libsframe.a
+            WORKING_DIRECTORY ${SFRAME_DIR}/release
+            COMMAND make -j4
+            DEPENDS ${PROJECT_BINARY_DIR}/CMakeCache.txt ${SFRAME_DIR}/release/oss_src/sframe/libsframe.a)
 
     endif()
 
-    add_custom_target(libsframe ALL DEPENDS ${SFRAME_DIR} ${SFRAME_DIR}/bld/libsframe.config
-        ${SFRAME_DIR}/bld/libsframe.build)
+    add_custom_target(libsframe ALL DEPENDS ${SFRAME_DIR} ${SFRAME_DIR}/release/Makefile 
+        ${SFRAME_DIR}/release/oss_src/sframe/libsframe.a)
     message(STATUS "Use bundled sframe: ${SFRAME_DIR}")
     #add_dependencies(build_bundled_libs libws)
     #set(ws_lib "${SFRAME}/bld/libws.a")
